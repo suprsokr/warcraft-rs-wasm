@@ -42,9 +42,9 @@
 //! - Memory: ≤2× raw file size peak
 
 use std::io::{Read, Seek};
+use std::time::Duration;
 #[cfg(not(target_arch = "wasm32"))]
 use std::time::Instant;
-use std::time::Duration;
 
 use crate::chunk_discovery::{ChunkDiscovery, discover_chunks};
 use crate::chunks::mh2o::Mh2oChunk;

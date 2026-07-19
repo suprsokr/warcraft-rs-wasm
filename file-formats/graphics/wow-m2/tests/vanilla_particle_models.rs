@@ -31,7 +31,10 @@ fn test_vanilla_particle_model_parses() {
                 model.texture_animations.len(),
                 model.transparency_animations.len(),
             );
-            assert!(model.particle_emitters.len() > 0, "should have particle emitters");
+            assert!(
+                model.particle_emitters.len() > 0,
+                "should have particle emitters"
+            );
         }
         Err(e) => {
             panic!("Failed to parse vanilla particle model: {}", e);
