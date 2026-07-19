@@ -1,0 +1,43 @@
+[package]
+name = "wow-m2"
+version = "0.6.4"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/wow-m2"
+description = "Parser, validator, and converter for World of Warcraft M2 model files with animation support"
+readme = "README.md"
+keywords = ["wow", "warcraft", "m2", "models", "gamedev"]
+categories = ["game-development", "parser-implementations"]
+
+[dependencies]
+thiserror = { workspace = true }
+log = { workspace = true }
+bytes = { workspace = true }
+serde = { workspace = true, features = ["derive"], optional = true }
+memchr = { workspace = true }
+bitflags = { workspace = true }
+glam = { workspace = true }
+anyhow = { workspace = true }
+wow-blp = { path = "../wow-blp", version = "0.6.1" }
+
+[dev-dependencies]
+criterion = { workspace = true }
+tempfile = { workspace = true }
+env_logger = { workspace = true }
+pretty_assertions = { workspace = true }
+test-case = { workspace = true }
+wow-mpq = { path = "../../archives/wow-mpq", version = "0.6.1" }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+
+[features]
+default = []
+serde-support = ["serde", "glam/serde"]
+
+[[bench]]
+name = "parse_bench"
+harness = false

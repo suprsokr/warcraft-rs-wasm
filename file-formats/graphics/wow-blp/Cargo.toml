@@ -1,0 +1,40 @@
+[package]
+name = "wow-blp"
+version = "0.6.4"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+documentation = "https://docs.rs/wow-blp"
+description = "Parser and encoder for World of Warcraft BLP texture files with DXT compression support"
+readme = "README.md"
+keywords = ["wow", "warcraft", "blp", "texture", "gamedev"]
+categories = ["game-development", "parser-implementations"]
+
+[dependencies]
+thiserror = { workspace = true }
+log = { workspace = true }
+bytes = { workspace = true }
+
+# Image processing
+image = "0.25"
+color_quant = "1.1"
+
+# Compression
+texpresso = { version = "2.0", features = ["rayon"] }
+
+[dev-dependencies]
+env_logger = { workspace = true }
+tempfile = { workspace = true }
+test-log = "0.2"
+pretty_assertions = { workspace = true }
+criterion = { workspace = true }
+
+[features]
+default = []
+
+[[bench]]
+name = "parser_benchmark"
+harness = false

@@ -1,0 +1,67 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-wasm:
+    name: build ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [wasm32-unknown-unknown, wasm32-wasip1]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.92"
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build release libraries
+        run: cargo build --release --workspace --target ${{ matrix.target }}
+
+      - name: Package artifacts
+        run: |
+          set -euo pipefail
+          pkg="warcraft-rs-wasm-${GITHUB_REF_NAME}-${{ matrix.target }}"
+          mkdir -p "dist/$pkg"
+          # Ship the compiled rlibs plus license/readme for each crate
+          find "target/${{ matrix.target }}/release" -maxdepth 1 -name '*.rlib' \
+            -exec cp {} "dist/$pkg/" \;
+          cp README.md LICENSE-APACHE LICENSE-MIT "dist/$pkg/"
+          tar -C dist -czf "$pkg.tar.gz" "$pkg"
+          ls -la "$pkg.tar.gz"
+
+      - name: Upload tarball artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: warcraft-rs-wasm-${{ matrix.target }}
+          path: "warcraft-rs-wasm-${{ github.ref_name }}-${{ matrix.target }}.tar.gz"
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub release
+    needs: build-wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: warcraft-rs-wasm-*
+          merge-multiple: true
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.tar.gz"
+          generate_release_notes: true
