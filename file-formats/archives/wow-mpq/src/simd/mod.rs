@@ -183,6 +183,8 @@ fn detect_cpu_features() -> CpuFeatures {
 
     #[cfg(target_arch = "aarch64")]
     {
+        use std::arch::is_aarch64_feature_detected;
+
         CpuFeatures {
             has_sse42: false,
             has_avx2: false,

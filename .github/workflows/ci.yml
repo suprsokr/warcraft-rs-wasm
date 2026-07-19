@@ -27,7 +27,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: cargo check
-        run: cargo check --workspace --target ${{ matrix.target }} --all-features
+        # Note: --all-features is not used because some features (e.g. wow-mpq/async)
+        # enable tokio/fs and other non-wasm-compatible functionality.
+        run: cargo check --workspace --target ${{ matrix.target }}
 
       - name: cargo build (release)
         run: cargo build --release --workspace --target ${{ matrix.target }}
@@ -43,6 +45,11 @@ jobs:
           toolchain: "1.92"
 
       - uses: Swatinem/rust-cache@v2
+
+      # All-features check runs on native only; some features (e.g. wow-mpq/async)
+      # pull in tokio/fs which is unsupported on wasm targets.
+      - name: cargo check (all features)
+        run: cargo check --workspace --all-features
 
       - name: cargo test (lib targets only)
         run: cargo test --workspace --lib

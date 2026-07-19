@@ -71,7 +71,7 @@ mod decryption;
 mod encryption;
 mod hash;
 mod jenkins;
-mod keys;
+pub(crate) mod keys;
 mod signature;
 mod types;
 
