@@ -1,5 +1,7 @@
 # wow-mpq-web
 
+[![npm](https://img.shields.io/npm/v/wow-mpq-web)](https://www.npmjs.com/package/wow-mpq-web)
+
 Read and write World of Warcraft **MPQ archives** in the browser and
 Node.js — WebAssembly bindings for the [`wow-mpq`](../../file-formats/archives/wow-mpq)
 Rust crate. Everything happens in memory: bytes in (`Uint8Array`), bytes

@@ -1,5 +1,7 @@
 # wow-blp-web
 
+[![npm](https://img.shields.io/npm/v/wow-blp-web)](https://www.npmjs.com/package/wow-blp-web)
+
 Decode and encode World of Warcraft **BLP textures** in the browser and
 Node.js — WebAssembly bindings for the [`wow-blp`](../../file-formats/graphics/wow-blp)
 Rust crate. Everything happens in memory: bytes in (`Uint8Array`),

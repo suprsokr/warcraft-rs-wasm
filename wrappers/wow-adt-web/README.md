@@ -1,5 +1,7 @@
 # wow-adt-web
 
+[![npm](https://img.shields.io/npm/v/wow-adt-web)](https://www.npmjs.com/package/wow-adt-web)
+
 Read and **edit** World of Warcraft **ADT terrain tiles** in the browser and
 Node.js — WebAssembly bindings for the [`wow-adt`](../../file-formats/world-data/wow-adt)
 Rust crate. ADT files are the 16×16 chunk terrain tiles of a map: heightmaps,

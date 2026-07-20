@@ -1,5 +1,7 @@
 # wow-wdl-web
 
+[![npm](https://img.shields.io/npm/v/wow-wdl-web)](https://www.npmjs.com/package/wow-wdl-web)
+
 Read and write World of Warcraft **WDL low-resolution terrain files** in
 the browser and Node.js — WebAssembly bindings for the
 [`wow-wdl`](../../file-formats/world-data/wow-wdl) Rust crate. WDL files

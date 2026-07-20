@@ -63,18 +63,18 @@ module automatically.
 ## Web / JavaScript usage
 
 For browser and Node.js/TypeScript consumers, wasm-bindgen wrapper crates
-live under [`wrappers/`](wrappers/):
+live under [`wrappers/`](wrappers/) and are published to npm:
 
-| Wrapper | Wraps | Status |
-| ------- | ----- | ------ |
-| [`wow-adt-web`](wrappers/wow-adt-web) | `wow-adt` | read/write tiles (monolithic + split sets) |
-| [`wow-blp-web`](wrappers/wow-blp-web) | `wow-blp` | decode/encode + PNG helpers |
-| [`wow-cdbc-web`](wrappers/wow-cdbc-web) | `wow-cdbc` | read/write DBC records with schema support |
-| [`wow-m2-web`](wrappers/wow-m2-web) | `wow-m2` | read/write M2 models + skin/anim parsers |
-| [`wow-wmo-web`](wrappers/wow-wmo-web) | `wow-wmo` | read/write WMO root + read group geometry |
-| [`wow-mpq-web`](wrappers/wow-mpq-web) | `wow-mpq` | full read/write |
-| [`wow-wdl-web`](wrappers/wow-wdl-web) | `wow-wdl` | full read/write |
-| [`wow-wdt-web`](wrappers/wow-wdt-web) | `wow-wdt` | full read/write |
+| Wrapper | npm | Wraps | Status |
+| ------- | --- | ----- | ------ |
+| [`wow-adt-web`](wrappers/wow-adt-web) | [![npm](https://img.shields.io/npm/v/wow-adt-web)](https://www.npmjs.com/package/wow-adt-web) | `wow-adt` | read/write tiles (monolithic + split sets) |
+| [`wow-blp-web`](wrappers/wow-blp-web) | [![npm](https://img.shields.io/npm/v/wow-blp-web)](https://www.npmjs.com/package/wow-blp-web) | `wow-blp` | decode/encode + PNG helpers |
+| [`wow-cdbc-web`](wrappers/wow-cdbc-web) | [![npm](https://img.shields.io/npm/v/wow-cdbc-web)](https://www.npmjs.com/package/wow-cdbc-web) | `wow-cdbc` | read/write DBC records with schema support |
+| [`wow-m2-web`](wrappers/wow-m2-web) | [![npm](https://img.shields.io/npm/v/wow-m2-web)](https://www.npmjs.com/package/wow-m2-web) | `wow-m2` | read/write M2 models + skin/anim parsers |
+| [`wow-wmo-web`](wrappers/wow-wmo-web) | [![npm](https://img.shields.io/npm/v/wow-wmo-web)](https://www.npmjs.com/package/wow-wmo-web) | `wow-wmo` | read/write WMO root + read group geometry |
+| [`wow-mpq-web`](wrappers/wow-mpq-web) | [![npm](https://img.shields.io/npm/v/wow-mpq-web)](https://www.npmjs.com/package/wow-mpq-web) | `wow-mpq` | full read/write |
+| [`wow-wdl-web`](wrappers/wow-wdl-web) | [![npm](https://img.shields.io/npm/v/wow-wdl-web)](https://www.npmjs.com/package/wow-wdl-web) | `wow-wdl` | full read/write |
+| [`wow-wdt-web`](wrappers/wow-wdt-web) | [![npm](https://img.shields.io/npm/v/wow-wdt-web)](https://www.npmjs.com/package/wow-wdt-web) | `wow-wdt` | full read/write |
 
 Each wrapper has its own README with API details and code examples (linked
 in the table above).
@@ -138,7 +138,25 @@ Notes:
 
 ### Using the wrappers on GitHub Pages
 
-Download a prebuilt web package from the
+**Option 1 — load from an npm CDN (no build/download needed).** Because
+each wrapper is on npm, you can import it directly from a CDN in a plain
+HTML page hosted on GitHub Pages:
+
+```html
+<script type="module">
+  import init, { MpqArchive } from 'https://esm.sh/wow-mpq-web';
+  await init();
+
+  const archive = new MpqArchive(new Uint8Array(await file.arrayBuffer()));
+  console.log(archive.list());
+</script>
+```
+
+Other CDNs work too: `https://cdn.jsdelivr.net/npm/wow-mpq-web` or
+`https://unpkg.com/wow-mpq-web`.
+
+**Option 2 — host the package yourself on GitHub Pages.** Download a
+prebuilt web package from the
 [latest release](https://github.com/suprsokr/warcraft-rs-wasm/releases/latest)
 and drop the extracted `pkg/` folder into your GitHub Pages repository
 (for example, under `wasm/wow-mpq-web/`). GitHub Pages will serve the
@@ -148,8 +166,6 @@ origin as your page, the WASM loads without any CORS configuration.
 The `wasm-bindgen --target web` output loads the `.wasm` file relative to
 its own `.js` file (`import.meta.url`), so keep the files together in the
 same directory.
-
-Example in a GitHub Pages page:
 
 ```html
 <script type="module">
@@ -164,9 +180,7 @@ Example in a GitHub Pages page:
 > Note: the built wrappers are only attached to GitHub releases and
 > published to npm; they are not committed to the repository, so you
 > cannot fetch them directly from `raw.githubusercontent.com` or
-> `cdn.jsdelivr.net/gh/...`. For GitHub Pages, host the extracted package
-> on your own site, or load the npm package from a CDN such as
-> `esm.sh` or `cdn.jsdelivr.net/npm/...`.
+> `cdn.jsdelivr.net/gh/...`.
 
 ## What this repository is for
 

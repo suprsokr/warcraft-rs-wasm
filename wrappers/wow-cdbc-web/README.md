@@ -1,5 +1,7 @@
 # wow-cdbc-web
 
+[![npm](https://img.shields.io/npm/v/wow-cdbc-web)](https://www.npmjs.com/package/wow-cdbc-web)
+
 WebAssembly bindings for [`wow-cdbc`](../../file-formats/database/wow-cdbc) —
 parse and write World of Warcraft DBC (client database) files from
 JavaScript / TypeScript.

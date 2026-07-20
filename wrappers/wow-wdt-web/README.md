@@ -1,5 +1,7 @@
 # wow-wdt-web
 
+[![npm](https://img.shields.io/npm/v/wow-wdt-web)](https://www.npmjs.com/package/wow-wdt-web)
+
 Read and write World of Warcraft **WDT map table files** in the browser
 and Node.js — WebAssembly bindings for the [`wow-wdt`](../../file-formats/world-data/wow-wdt)
 Rust crate. WDT files describe which tiles of a map exist and hold

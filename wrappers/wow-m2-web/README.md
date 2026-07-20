@@ -1,5 +1,7 @@
 # wow-m2-web
 
+[![npm](https://img.shields.io/npm/v/wow-m2-web)](https://www.npmjs.com/package/wow-m2-web)
+
 Read and write World of Warcraft **M2 model files** in the browser and Node.js —
 WebAssembly bindings for the [`wow-m2`](../../file-formats/graphics/wow-m2)
 Rust crate. Everything happens in memory.
