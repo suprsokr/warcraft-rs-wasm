@@ -1,6 +1,6 @@
 # wow-m2-web
 
-Read World of Warcraft **M2 model files** in the browser and Node.js —
+Read and write World of Warcraft **M2 model files** in the browser and Node.js —
 WebAssembly bindings for the [`wow-m2`](../../file-formats/graphics/wow-m2)
 Rust crate. Everything happens in memory.
 

@@ -70,7 +70,7 @@ live under [`wrappers/`](wrappers/):
 | [`wow-adt-web`](wrappers/wow-adt-web) | `wow-adt` | read/write tiles (monolithic + split sets) |
 | [`wow-blp-web`](wrappers/wow-blp-web) | `wow-blp` | decode/encode + PNG helpers |
 | [`wow-cdbc-web`](wrappers/wow-cdbc-web) | `wow-cdbc` | read/write DBC records with schema support |
-| [`wow-m2-web`](wrappers/wow-m2-web) | `wow-m2` | read M2 models + skin/anim parsers |
+| [`wow-m2-web`](wrappers/wow-m2-web) | `wow-m2` | read/write M2 models + skin/anim parsers |
 | [`wow-wmo-web`](wrappers/wow-wmo-web) | `wow-wmo` | read WMO roots + group geometry |
 | [`wow-mpq-web`](wrappers/wow-mpq-web) | `wow-mpq` | full read/write |
 | [`wow-wdl-web`](wrappers/wow-wdl-web) | `wow-wdl` | full read/write |
