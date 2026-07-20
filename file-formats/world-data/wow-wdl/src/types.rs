@@ -31,6 +31,7 @@ pub const MLMX_MAGIC: [u8; 4] = [b'X', b'M', b'L', b'M'];
 
 /// Vector 3D type used in WoW files
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Vec3d {
     /// X coordinate
     pub x: f32,
@@ -74,6 +75,7 @@ impl Vec3d {
 
 /// Bounding box used in WoW files
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct BoundingBox {
     /// Minimum corner of the bounding box
     pub min: Vec3d,
@@ -109,6 +111,7 @@ impl BoundingBox {
 
 /// A chunk in a WDL file
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Chunk {
     /// The four-character identifier for this chunk
     pub magic: [u8; 4],
@@ -161,6 +164,7 @@ impl Chunk {
 
 /// Model placement information (MODF chunk data)
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct ModelPlacement {
     /// Unique ID for this instance
     pub id: u32,
@@ -237,6 +241,7 @@ impl ModelPlacement {
 
 /// M2 Model placement information (MLDD chunk data in Legion+)
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct M2Placement {
     /// Unique ID for this instance
     pub id: u32,
@@ -293,6 +298,7 @@ impl M2Placement {
 
 /// WMO Model visibility info (MLDX chunk data in Legion+)
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct M2VisibilityInfo {
     /// Bounding box for visibility check
     pub bounds: BoundingBox,
@@ -329,6 +335,7 @@ impl M2VisibilityInfo {
 ///
 /// This matches the vertex layout of full ADT heightmaps but at lower resolution.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct HeightMapTile {
     /// Outer heightmap values (17x17 grid)
     /// These represent the height values at the corners of each chunk
@@ -402,6 +409,7 @@ impl HeightMapTile {
 /// - 0 = hole present
 /// - 1 = no hole (solid terrain)
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct HolesData {
     /// Bitmasks for holes (16 uint16 values, one per row)
     /// Each uint16 represents 16 chunks in a row (bits 0-15 = chunks 0-15)

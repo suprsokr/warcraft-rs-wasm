@@ -216,6 +216,17 @@ impl OpenOptions {
         Archive::open_with_options(path, self)
     }
 
+    /// Open an existing MPQ archive from a seekable reader with these options
+    ///
+    /// Use this on targets without filesystem access (e.g. wasm in the
+    /// browser), typically with `std::io::Cursor` over a byte buffer.
+    pub fn open_reader<R: std::io::Read + std::io::Seek + Send + 'static>(
+        self,
+        reader: R,
+    ) -> Result<Archive> {
+        Archive::open_reader_with_options(reader, self)
+    }
+
     /// Create a new empty MPQ archive with these options
     ///
     /// Creates a new MPQ archive file with the specified format version.
@@ -252,12 +263,11 @@ impl Default for OpenOptions {
 }
 
 /// An MPQ archive
-#[derive(Debug)]
 pub struct Archive {
-    /// Path to the archive file
+    /// Path to the archive file (empty when opened from a reader)
     path: PathBuf,
-    /// Archive file reader
-    reader: BufReader<File>,
+    /// Archive data reader (file or any in-memory `Read + Seek` source)
+    reader: BufReader<Box<dyn crate::io::ReadSeek + Send>>,
     /// Offset where the MPQ data starts in the file
     archive_offset: u64,
     /// Optional user data header
@@ -278,7 +288,23 @@ pub struct Archive {
     attributes: Option<special_files::Attributes>,
 }
 
+impl std::fmt::Debug for Archive {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Archive")
+            .field("path", &self.path)
+            .field("archive_offset", &self.archive_offset)
+            .field("user_data", &self.user_data)
+            .field("header", &self.header)
+            .finish_non_exhaustive()
+    }
+}
+
 impl Archive {
+    /// Total length of the underlying data source in bytes.
+    fn data_len(&mut self) -> Result<u64> {
+        Ok(self.reader.seek(SeekFrom::End(0))?)
+    }
+
     /// Open an existing MPQ archive
     pub fn open<P: AsRef<Path>>(path: P) -> Result<Self> {
         Self::open_with_options(path, OpenOptions::default())
@@ -288,7 +314,32 @@ impl Archive {
     pub fn open_with_options<P: AsRef<Path>>(path: P, options: OpenOptions) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
         let file = File::open(&path)?;
-        let mut reader = BufReader::new(file);
+        Self::open_reader_inner(path, Box::new(file), options)
+    }
+
+    /// Open an archive from any seekable reader (e.g. `std::io::Cursor<&[u8]>`).
+    ///
+    /// This is the primary entry point on targets without a filesystem
+    /// (such as `wasm32-unknown-unknown` in the browser), where archives
+    /// are provided as in-memory byte buffers.
+    pub fn open_reader<R: Read + Seek + Send + 'static>(reader: R) -> Result<Self> {
+        Self::open_reader_with_options(reader, OpenOptions::default())
+    }
+
+    /// Open an archive from a reader with specific options
+    pub fn open_reader_with_options<R: Read + Seek + Send + 'static>(
+        reader: R,
+        options: OpenOptions,
+    ) -> Result<Self> {
+        Self::open_reader_inner(PathBuf::new(), Box::new(reader), options)
+    }
+
+    fn open_reader_inner(
+        path: PathBuf,
+        reader: Box<dyn crate::io::ReadSeek + Send>,
+        options: OpenOptions,
+    ) -> Result<Self> {
+        let mut reader = BufReader::new(reader);
 
         // Find and read the MPQ header
         let (archive_offset, user_data, header) = header::find_header(&mut reader)?;
@@ -464,7 +515,8 @@ impl Archive {
             // For V4 archives, we have explicit compressed size info
             if let Some(v4_data) = &self.header.v4_data {
                 // Validate V4 sizes are reasonable (not corrupted)
-                let file_size = self.reader.get_ref().metadata()?.len();
+                let v4_data = v4_data.clone();
+                let file_size = self.data_len()?;
                 let v4_size_valid = v4_data.hash_table_size_64 > 0
                     && v4_data.hash_table_size_64 < file_size
                     && v4_data.hash_table_size_64 < (uncompressed_size as u64 * 2); // Compressed shouldn't be much larger
@@ -478,7 +530,7 @@ impl Archive {
                     );
 
                     // Check if it would extend beyond file
-                    let file_size = self.reader.get_ref().metadata()?.len();
+                    let file_size = self.data_len()?;
                     if hash_table_offset + compressed_size > file_size {
                         log::warn!("Hash table extends beyond file, skipping");
                     } else {
@@ -529,7 +581,7 @@ impl Archive {
                     (block_table_offset - hash_table_offset) as usize
                 } else {
                     // If block table comes before hash table, calculate differently
-                    let file_size = self.reader.get_ref().metadata()?.len();
+                    let file_size = self.data_len()?;
                     (file_size - hash_table_offset) as usize
                 };
 
@@ -613,7 +665,8 @@ impl Archive {
             // For V4 archives, we have explicit compressed size info
             if let Some(v4_data) = &self.header.v4_data {
                 // Validate V4 sizes are reasonable (not corrupted)
-                let file_size = self.reader.get_ref().metadata()?.len();
+                let v4_data = v4_data.clone();
+                let file_size = self.data_len()?;
                 let v4_size_valid = v4_data.block_table_size_64 > 0
                     && v4_data.block_table_size_64 < file_size
                     && v4_data.block_table_size_64 < (uncompressed_size as u64 * 2); // Compressed shouldn't be much larger
@@ -627,7 +680,7 @@ impl Archive {
                     );
 
                     // Check if it would extend beyond file
-                    let file_size = self.reader.get_ref().metadata()?.len();
+                    let file_size = self.data_len()?;
                     if block_table_offset + compressed_size > file_size {
                         log::warn!("Block table extends beyond file, skipping");
                     } else {
@@ -673,7 +726,7 @@ impl Archive {
             if self.block_table.is_none() {
                 // For V3 and earlier, or V4 with invalid sizes, we need to detect if tables are compressed
                 // Calculate available space for block table
-                let file_size = self.reader.get_ref().metadata()?.len();
+                let file_size = self.data_len()?;
                 let next_section = if let Some(hi_block_pos) = self.header.hi_block_table_pos {
                     if hi_block_pos != 0 {
                         self.archive_offset + hi_block_pos
@@ -761,7 +814,7 @@ impl Archive {
             let hi_block_offset = self.archive_offset + hi_block_pos;
             let hi_block_end = hi_block_offset + (self.header.block_table_size as u64 * 8);
 
-            let file_size = self.reader.get_ref().metadata()?.len();
+            let file_size = self.data_len()?;
             if hi_block_end > file_size {
                 log::warn!(
                     "Hi-block table extends beyond file (ends at 0x{hi_block_end:X}, file size 0x{file_size:X}). Skipping."
@@ -950,7 +1003,7 @@ impl Archive {
 
         // Get file size
         log::debug!("Getting file size");
-        let file_size = self.reader.get_ref().metadata()?.len();
+        let file_size = self.data_len()?;
 
         // Count files
         let file_count = if let Some(bet) = &self.bet_table {
@@ -1033,9 +1086,9 @@ impl Archive {
             if compressed_size.is_none() && self.header.format_version == header::FormatVersion::V3
             {
                 // Make a copy of the reader to avoid interfering with the main archive
-                if let Ok(temp_reader) =
-                    std::fs::File::open(&self.path).map(std::io::BufReader::new)
-                {
+                if let Ok(temp_reader) = std::fs::File::open(&self.path).map(|f| {
+                    std::io::BufReader::new(Box::new(f) as Box<dyn crate::io::ReadSeek + Send>)
+                }) {
                     let mut temp_archive = Self {
                         path: self.path.clone(),
                         reader: temp_reader,
@@ -1076,9 +1129,9 @@ impl Archive {
             if compressed_size.is_none() && self.header.format_version == header::FormatVersion::V3
             {
                 // Make a copy of the reader to avoid interfering with the main archive
-                if let Ok(temp_reader) =
-                    std::fs::File::open(&self.path).map(std::io::BufReader::new)
-                {
+                if let Ok(temp_reader) = std::fs::File::open(&self.path).map(|f| {
+                    std::io::BufReader::new(Box::new(f) as Box<dyn crate::io::ReadSeek + Send>)
+                }) {
                     let mut temp_archive = Self {
                         path: self.path.clone(),
                         reader: temp_reader,
@@ -2761,7 +2814,7 @@ impl Archive {
         };
 
         // Get total file size
-        let file_size = self.reader.get_ref().metadata()?.len();
+        let file_size = self.data_len()?;
 
         // Calculate expected archive end position
         let archive_end = self.archive_offset + self.header.get_archive_size();

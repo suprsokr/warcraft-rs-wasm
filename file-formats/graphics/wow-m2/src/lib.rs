@@ -182,7 +182,10 @@ pub use skin::{OldSkin, Skin, SkinFile, load_skin, parse_skin};
 pub use skinning::{BoneTransform, M2Skinner, SkinningOptions};
 pub use version::M2Version;
 
-// Re-export BLP types from wow-blp crate for backwards compatibility
+// Re-export BLP types from wow-blp crate for backwards compatibility.
+// Enabled by default; downstream wasm bindings disable it to avoid the
+// `image` encode/decode stack in the `.wasm` binary.
+#[cfg(feature = "blp")]
 pub use wow_blp::BlpImage as BlpTexture;
 
 /// Library version

@@ -3,6 +3,7 @@ use bitflags::bitflags;
 
 /// Represents a WMO group file
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoGroup {
     /// Group header
     pub header: WmoGroupHeader,
@@ -40,6 +41,7 @@ pub struct WmoGroup {
 
 /// Header for a WMO group
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoGroupHeader {
     /// Group flags
     pub flags: WmoGroupFlags,
@@ -61,6 +63,7 @@ impl WmoGroupHeader {
 bitflags! {
     /// WMO group flags
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize))]
     pub struct WmoGroupFlags: u32 {
         /// Has base vertices
         const HAS_BASE_VERTICES = 0x01;
@@ -103,6 +106,7 @@ bitflags! {
 
 /// Texture coordinates
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct TexCoord {
     pub u: f32,
     pub v: f32,
@@ -110,6 +114,7 @@ pub struct TexCoord {
 
 /// Represents a rendering batch in a WMO group
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoBatch {
     /// Flags for the batch
     pub flags: [u8; 10],
@@ -135,6 +140,7 @@ pub struct WmoBatch {
 
 /// BSP tree node for collision and visibility
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoBspNode {
     /// Plane split information
     pub plane: WmoPlane,
@@ -151,6 +157,7 @@ pub struct WmoBspNode {
 
 /// Plane used in BSP node calculations
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoPlane {
     /// Normal vector
     pub normal: Vec3,
@@ -161,6 +168,7 @@ pub struct WmoPlane {
 
 /// Liquid data in a WMO group
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoLiquid {
     /// Liquid type
     pub liquid_type: u32,
@@ -181,6 +189,7 @@ pub struct WmoLiquid {
 
 /// Vertex in a liquid surface
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoLiquidVertex {
     /// Position
     pub position: Vec3,
@@ -191,6 +200,7 @@ pub struct WmoLiquidVertex {
 
 /// Material information for a group
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoMaterialInfo {
     /// Material ID in the root file
     pub material_id: u16,

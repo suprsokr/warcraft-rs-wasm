@@ -5,6 +5,7 @@ use std::fmt;
 
 /// WoW expansion versions that affect WDT format
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum WowVersion {
     /// Classic/Vanilla (1.x)
     Classic,
@@ -161,6 +162,7 @@ impl fmt::Display for WowVersion {
 
 /// Version-specific configuration for WDT handling
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct VersionConfig {
     pub version: WowVersion,
 }

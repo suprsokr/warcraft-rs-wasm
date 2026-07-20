@@ -1,5 +1,12 @@
 name: Release
 
+# Creates a tagged GitHub release and attaches the prebuilt wasm-bindgen
+# web packages (the same output as `wasm-bindgen --target web`, plus
+# package.json/README/licenses) so JS/TS users can download and use them
+# without a Rust toolchain. No Rust library artifacts are published: Rust
+# consumers build from source (git dependency) for whatever target they
+# need — prebuilt rlibs would be tied to one exact rustc version.
+
 on:
   push:
     tags: ["v*"]
@@ -7,57 +14,83 @@ on:
 permissions:
   contents: write
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
-  build-wasm:
-    name: build ${{ matrix.target }}
+  build-web:
+    name: Build web packages
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        target: [wasm32-unknown-unknown, wasm32-wasip1]
+        wrapper: [wow-adt-web, wow-blp-web, wow-cdbc-web, wow-m2-web, wow-mpq-web, wow-wdl-web, wow-wdt-web, wow-wmo-web]
     steps:
       - uses: actions/checkout@v4
 
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.92"
-          targets: ${{ matrix.target }}
+          targets: wasm32-unknown-unknown
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Build release libraries
-        run: cargo build --release --workspace --target ${{ matrix.target }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-      - name: Package artifacts
+      - name: Install wasm-bindgen-cli (matching the crate version)
+        run: |
+          version=$(awk '/^name = "wasm-bindgen"$/{getline; print; exit}' Cargo.lock | cut -d'"' -f2)
+          echo "wasm-bindgen crate version: $version"
+          cargo install wasm-bindgen-cli --locked --version "$version"
+
+      - name: Install binaryen (wasm-opt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+          wasm-opt --version
+
+      - name: Build package
         run: |
           set -euo pipefail
-          pkg="warcraft-rs-wasm-${GITHUB_REF_NAME}-${{ matrix.target }}"
-          mkdir -p "dist/$pkg"
-          # Ship the compiled rlibs plus license/readme for each crate
-          find "target/${{ matrix.target }}/release" -maxdepth 1 -name '*.rlib' \
-            -exec cp {} "dist/$pkg/" \;
-          cp README.md LICENSE-APACHE LICENSE-MIT "dist/$pkg/"
-          tar -C dist -czf "$pkg.tar.gz" "$pkg"
-          ls -la "$pkg.tar.gz"
+          cargo build --release -p ${{ matrix.wrapper }} --target wasm32-unknown-unknown
+          pkg="wrappers/${{ matrix.wrapper }}/pkg"
+          wasm_name=$(echo '${{ matrix.wrapper }}' | tr - _)
+          wasm-bindgen --target web --out-dir "$pkg" \
+            "target/wasm32-unknown-unknown/release/${wasm_name}.wasm"
+          wasm_file="$pkg/${wasm_name}_bg.wasm"
+          echo "Wasm size before wasm-opt: $(wc -c < "$wasm_file") bytes"
+          wasm-opt -Os -o "$wasm_file" "$wasm_file"
+          echo "Wasm size after wasm-opt: $(wc -c < "$wasm_file") bytes"
+          cp "wrappers/${{ matrix.wrapper }}/package.json" "$pkg/"
+          cp "wrappers/${{ matrix.wrapper }}/README.md" "$pkg/"
+          cp LICENSE-APACHE LICENSE-MIT "$pkg/"
+
+      - name: Smoke test
+        run: node "wrappers/${{ matrix.wrapper }}/tests/smoke.mjs"
+
+      - name: Package tarball
+        run: |
+          set -euo pipefail
+          tarball="${{ matrix.wrapper }}-${GITHUB_REF_NAME}-web.tar.gz"
+          tar -C "wrappers/${{ matrix.wrapper }}" -czf "$tarball" pkg
+          echo "tarball=$tarball" >> "$GITHUB_ENV"
 
       - name: Upload tarball artifact
         uses: actions/upload-artifact@v4
         with:
-          name: warcraft-rs-wasm-${{ matrix.target }}
-          path: "warcraft-rs-wasm-${{ github.ref_name }}-${{ matrix.target }}.tar.gz"
+          name: ${{ matrix.wrapper }}-web
+          path: "${{ matrix.wrapper }}-${{ github.ref_name }}-web.tar.gz"
           if-no-files-found: error
 
   release:
     name: Create GitHub release
-    needs: build-wasm
+    needs: build-web
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
-          pattern: warcraft-rs-wasm-*
+          pattern: "*-web"
           merge-multiple: true
 
       - name: Publish release
@@ -65,3 +98,7 @@ jobs:
         with:
           files: "*.tar.gz"
           generate_release_notes: true
+
+  # Note: no npm/crates.io publishing yet. When we decide to publish to
+  # npm, add a job here that builds wrappers/*/pkg and runs `npm publish`
+  # (needs an NPM_TOKEN secret).

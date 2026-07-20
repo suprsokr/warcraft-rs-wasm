@@ -52,6 +52,7 @@ pub trait Chunk: Sized {
 
 /// MVER chunk - Version information
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct MverChunk {
     pub version: u32,
 }
@@ -110,6 +111,7 @@ impl Chunk for MverChunk {
 
 /// MAIN chunk entry - Tile information
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct MainEntry {
     pub flags: u32,
     pub area_id: u32,
@@ -146,6 +148,7 @@ impl Default for MainEntry {
 
 /// MAIN chunk - Map tile information
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct MainChunk {
     pub entries: Vec<Vec<MainEntry>>,
 }
@@ -242,6 +245,7 @@ impl Chunk for MainChunk {
 
 /// MWMO chunk - World Map Object filenames
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct MwmoChunk {
     pub filenames: Vec<String>,
 }
@@ -334,6 +338,7 @@ impl Chunk for MwmoChunk {
 
 /// MODF entry - Map Object Definition
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct ModfEntry {
     pub id: u32,
     pub unique_id: u32,
@@ -372,6 +377,7 @@ impl Default for ModfEntry {
 
 /// MODF chunk - Map Object Definitions
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct ModfChunk {
     pub entries: Vec<ModfEntry>,
 }

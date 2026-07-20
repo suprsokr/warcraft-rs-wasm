@@ -30,7 +30,7 @@ criterion = { workspace = true }
 
 [features]
 default = []
-serde = ["dep:serde", "dep:serde_json"]
+serde = ["dep:serde", "dep:serde_json", "bitflags/serde"]
 
 [lib]
 name = "wow_wdt"

@@ -2,6 +2,7 @@
 /// Based on empirical analysis: WMO version remains 17 across all analyzed versions (1.12.1-5.4.8)
 /// Features are differentiated by chunk presence rather than version numbers
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum WmoVersion {
     /// Classic/Vanilla (1.12.1) - Version 17, core chunks only
     Classic,
@@ -138,6 +139,7 @@ impl WmoVersion {
 
 /// Features introduced in different WMO versions
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum WmoFeature {
     /// Base WMO features (available in all versions)
     Base,

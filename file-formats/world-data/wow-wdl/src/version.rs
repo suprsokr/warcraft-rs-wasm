@@ -4,6 +4,7 @@ use std::fmt;
 
 /// Represents the different versions of WDL files
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum WdlVersion {
     /// Vanilla version (Classic, TBC, pre-WotLK)
     Vanilla,

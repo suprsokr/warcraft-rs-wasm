@@ -48,6 +48,7 @@ use std::io::{Read, Seek, SeekFrom, Write};
 
 /// A complete WDT file representation
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WdtFile {
     /// Version chunk (always required)
     pub mver: MverChunk,
@@ -182,6 +183,7 @@ impl WdtFile {
 
 /// Information about a specific tile
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct TileInfo {
     pub x: usize,
     pub y: usize,

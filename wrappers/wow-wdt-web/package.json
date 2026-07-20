@@ -1,0 +1,32 @@
+{
+  "name": "wow-wdt-web",
+  "description": "Read and write World of Warcraft WDT map table files in the browser and Node.js (WebAssembly bindings for wow-wdt)",
+  "version": "0.6.4",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suprsokr/warcraft-rs-wasm"
+  },
+  "type": "module",
+  "main": "./wow_wdt_web.js",
+  "module": "./wow_wdt_web.js",
+  "types": "./wow_wdt_web.d.ts",
+  "sideEffects": false,
+  "files": [
+    "wow_wdt_web.js",
+    "wow_wdt_web.d.ts",
+    "wow_wdt_web_bg.wasm",
+    "wow_wdt_web_bg.wasm.d.ts",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "keywords": [
+    "warcraft",
+    "wow",
+    "wdt",
+    "map",
+    "wasm",
+    "webassembly"
+  ]
+}

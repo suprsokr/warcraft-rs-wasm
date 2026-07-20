@@ -1,0 +1,32 @@
+{
+  "name": "wow-blp-web",
+  "description": "Decode and encode World of Warcraft BLP textures in the browser and Node.js (WebAssembly bindings for wow-blp)",
+  "version": "0.6.4",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suprsokr/warcraft-rs-wasm"
+  },
+  "type": "module",
+  "main": "./wow_blp_web.js",
+  "module": "./wow_blp_web.js",
+  "types": "./wow_blp_web.d.ts",
+  "sideEffects": false,
+  "files": [
+    "wow_blp_web.js",
+    "wow_blp_web.d.ts",
+    "wow_blp_web_bg.wasm",
+    "wow_blp_web_bg.wasm.d.ts",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "keywords": [
+    "warcraft",
+    "wow",
+    "blp",
+    "texture",
+    "wasm",
+    "webassembly"
+  ]
+}

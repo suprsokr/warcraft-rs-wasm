@@ -15,6 +15,19 @@ members = [
 
   # Database
   "file-formats/database/wow-cdbc",
+
+  # Web (wasm-bindgen) wrappers
+  "wrappers/wow-adt-web",
+  "wrappers/wow-blp-web",
+  "wrappers/wow-cdbc-web",
+  "wrappers/wow-wdl-web",
+  "wrappers/wow-wdt-web",
+  "wrappers/wow-mpq-web",
+  "wrappers/wow-wmo-web",
+  "wrappers/wow-m2-web",
+
+  # Shared scaffolding for web wrappers (internal, not a standalone package)
+  "wrappers/wow-web-common",
 ]
 resolver = "2"
 
@@ -24,8 +37,8 @@ authors = ["Daniel S. Reichenbach <daniel@kogito.network>"]
 edition = "2024"
 rust-version = "1.92"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/wowemulation-dev/warcraft-rs"
-homepage = "https://github.com/wowemulation-dev/warcraft-rs"
+repository = "https://github.com/suprsokr/warcraft-rs-wasm"
+homepage = "https://github.com/suprsokr/warcraft-rs-wasm"
 
 [workspace.dependencies]
 # Error handling

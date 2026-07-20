@@ -1,0 +1,33 @@
+{
+  "name": "wow-adt-web",
+  "description": "Read World of Warcraft ADT terrain tiles in the browser and Node.js (WebAssembly bindings for wow-adt)",
+  "version": "0.6.4",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suprsokr/warcraft-rs-wasm"
+  },
+  "type": "module",
+  "main": "./wow_adt_web.js",
+  "module": "./wow_adt_web.js",
+  "types": "./wow_adt_web.d.ts",
+  "sideEffects": false,
+  "files": [
+    "wow_adt_web.js",
+    "wow_adt_web.d.ts",
+    "wow_adt_web_bg.wasm",
+    "wow_adt_web_bg.wasm.d.ts",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "keywords": [
+    "warcraft",
+    "wow",
+    "adt",
+    "terrain",
+    "map",
+    "wasm",
+    "webassembly"
+  ]
+}

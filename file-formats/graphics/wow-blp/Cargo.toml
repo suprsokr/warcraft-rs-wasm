@@ -23,7 +23,13 @@ image = "0.25"
 color_quant = "1.1"
 
 # Compression
+# rayon (parallel DXTn compression) is native-only: it compiles on wasm but
+# cannot spawn threads there, so it would just be dead weight in the binary.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 texpresso = { version = "2.0", features = ["rayon"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+texpresso = "2.0"
 
 [dev-dependencies]
 env_logger = { workspace = true }

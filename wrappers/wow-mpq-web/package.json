@@ -1,0 +1,32 @@
+{
+  "name": "wow-mpq-web",
+  "description": "Read and write World of Warcraft MPQ archives in the browser and Node.js (WebAssembly bindings for wow-mpq)",
+  "version": "0.6.4",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suprsokr/warcraft-rs-wasm"
+  },
+  "type": "module",
+  "main": "./wow_mpq_web.js",
+  "module": "./wow_mpq_web.js",
+  "types": "./wow_mpq_web.d.ts",
+  "sideEffects": false,
+  "files": [
+    "wow_mpq_web.js",
+    "wow_mpq_web.d.ts",
+    "wow_mpq_web_bg.wasm",
+    "wow_mpq_web_bg.wasm.d.ts",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "keywords": [
+    "warcraft",
+    "wow",
+    "mpq",
+    "archive",
+    "wasm",
+    "webassembly"
+  ]
+}

@@ -6,6 +6,7 @@ use std::io::{Read, Write};
 
 /// Section types in MAID chunk
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum MaidSection {
     RootAdt,
     Obj0Adt,
@@ -63,6 +64,7 @@ impl MaidSection {
 
 /// MAID chunk - Contains FileDataIDs for all map files
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct MaidChunk {
     /// FileDataIDs for each section
     /// Each section contains 64x64 entries stored in \[Y\]\[X\] order

@@ -646,6 +646,23 @@ impl ArchiveBuilder {
         Ok(())
     }
 
+    /// Build the archive and write it to any `Write + Seek + Read` sink
+    /// (e.g. `std::io::Cursor<Vec<u8>>` for in-memory/wasm builds).
+    ///
+    /// Unlike [`build`](Self::build), this does not touch the filesystem.
+    pub fn build_to_writer<W: Write + Seek + Read>(mut self, writer: &mut W) -> Result<()> {
+        // Add listfile if needed
+        self.prepare_listfile()?;
+
+        // Add attributes file if needed
+        self.prepare_attributes()?;
+
+        self.write_archive(writer)?;
+        writer.flush()?;
+
+        Ok(())
+    }
+
     /// Prepare the listfile based on the option
     fn prepare_listfile(&mut self) -> Result<()> {
         match &self.listfile_option {

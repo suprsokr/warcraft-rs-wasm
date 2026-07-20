@@ -29,10 +29,71 @@ jobs:
       - name: cargo check
         # Note: --all-features is not used because some features (e.g. wow-mpq/async)
         # enable tokio/fs and other non-wasm-compatible functionality.
-        run: cargo check --workspace --target ${{ matrix.target }}
+        # wasm-bindgen wrappers (and the shared wow-web-common scaffolding)
+        # are excluded on WASI (wasm-bindgen only supports wasm32-unknown-unknown);
+        # they are covered by package-web.
+        run: |
+          if [ "${{ matrix.target }}" = "wasm32-wasip1" ]; then
+            cargo check --workspace $(printf -- '--exclude wow-%s-web ' adt blp cdbc m2 mpq wdl wdt wmo) --exclude wow-web-common --target ${{ matrix.target }}
+          else
+            cargo check --workspace --target ${{ matrix.target }}
+          fi
 
       - name: cargo build (release)
-        run: cargo build --release --workspace --target ${{ matrix.target }}
+        run: |
+          if [ "${{ matrix.target }}" = "wasm32-wasip1" ]; then
+            cargo build --release --workspace $(printf -- '--exclude wow-%s-web ' adt blp cdbc m2 mpq wdl wdt wmo) --exclude wow-web-common --target ${{ matrix.target }}
+          else
+            cargo build --release --workspace --target ${{ matrix.target }}
+          fi
+
+  package-web:
+    name: web bindings (${{ matrix.wrapper }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        wrapper: [wow-adt-web, wow-blp-web, wow-cdbc-web, wow-m2-web, wow-mpq-web, wow-wdl-web, wow-wdt-web, wow-wmo-web]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.92"
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install wasm-bindgen-cli (matching the crate version)
+        run: |
+          version=$(awk '/^name = "wasm-bindgen"$/{getline; print; exit}' Cargo.lock | cut -d'"' -f2)
+          echo "wasm-bindgen crate version: $version"
+          cargo install wasm-bindgen-cli --locked --version "$version"
+
+      - name: Install binaryen (wasm-opt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y binaryen
+          wasm-opt --version
+
+      - name: Build bindings
+        run: |
+          cargo build --release -p ${{ matrix.wrapper }} --target wasm32-unknown-unknown
+          wasm_name=$(echo '${{ matrix.wrapper }}' | tr - _)
+          pkg="wrappers/${{ matrix.wrapper }}/pkg"
+          wasm-bindgen --target web --out-dir "$pkg" \
+            target/wasm32-unknown-unknown/release/${wasm_name}.wasm
+          wasm_file="$pkg/${wasm_name}_bg.wasm"
+          echo "Wasm size before wasm-opt: $(wc -c < "$wasm_file") bytes"
+          wasm-opt -Os -o "$wasm_file" "$wasm_file"
+          echo "Wasm size after wasm-opt: $(wc -c < "$wasm_file") bytes"
+
+      - name: Node smoke test
+        run: node wrappers/${{ matrix.wrapper }}/tests/smoke.mjs
 
   test-native:
     name: test (native)

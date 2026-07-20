@@ -1,0 +1,25 @@
+[package]
+name = "wow-m2-web"
+description = "wasm-bindgen web bindings for the wow-m2 M2 model library"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+
+[lib]
+# rlib so native `cargo test`/`cargo doc` work; cdylib for the wasm module
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+wow-m2 = { path = "../../file-formats/graphics/wow-m2", version = "0.6.4", default-features = false, features = ["serde-support"] }
+wow-web-common = { path = "../wow-web-common" }
+
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+serde = { workspace = true, features = ["derive"] }
+
+[package.metadata.wasm-pack]
+# Build with: wasm-pack build --target web

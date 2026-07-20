@@ -7,6 +7,7 @@ use bitflags::bitflags;
 
 /// Represents a WMO root file
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoRoot {
     /// WMO version
     pub version: WmoVersion,
@@ -57,6 +58,7 @@ pub struct WmoRoot {
 
 /// WMO header information
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoHeader {
     /// Number of materials
     pub n_materials: u32,
@@ -89,6 +91,7 @@ pub struct WmoHeader {
 bitflags! {
     /// Global WMO flags
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize))]
     pub struct WmoFlags: u32 {
         /// Contains vertex colors
         const HAS_VERTEX_COLORS = 0x01;
@@ -115,6 +118,7 @@ bitflags! {
 
 /// Represents a WMO material
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoMaterial {
     /// Material flags
     pub flags: WmoMaterialFlags,
@@ -150,6 +154,7 @@ pub struct WmoMaterial {
 bitflags! {
     /// WMO material flags
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize))]
     pub struct WmoMaterialFlags: u32 {
         /// Unlit
         const UNLIT = 0x01;
@@ -196,6 +201,7 @@ impl WmoMaterial {
 
 /// Represents information about a WMO group
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoGroupInfo {
     /// Group flags
     pub flags: WmoGroupFlags,
@@ -209,6 +215,7 @@ pub struct WmoGroupInfo {
 
 /// Represents a WMO portal
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoPortal {
     /// Portal vertices
     pub vertices: Vec<Vec3>,
@@ -219,6 +226,7 @@ pub struct WmoPortal {
 
 /// Represents a WMO portal reference
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoPortalReference {
     /// Portal index
     pub portal_index: u16,
@@ -232,6 +240,7 @@ pub struct WmoPortalReference {
 
 /// Represents a WMO light
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoLight {
     /// Light type
     pub light_type: WmoLightType,
@@ -264,6 +273,7 @@ pub struct WmoLight {
 
 /// Type of WMO light
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum WmoLightType {
     /// Omnidirectional point light
     Omni = 0,
@@ -298,6 +308,7 @@ impl WmoLightType {
 
 /// Additional light properties depending on light type
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub enum WmoLightProperties {
     /// Omni light properties (none)
     Omni,
@@ -326,6 +337,7 @@ pub enum WmoLightProperties {
 
 /// Represents a WMO doodad definition
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoDoodadDef {
     /// Doodad name offset in MODN chunk
     pub name_offset: u32,
@@ -348,6 +360,7 @@ pub struct WmoDoodadDef {
 
 /// Represents a WMO doodad set
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoDoodadSet {
     /// Set name
     pub name: String,
@@ -363,6 +376,7 @@ pub struct WmoDoodadSet {
 /// Added in Cataclysm for transport WMOs and world objects requiring collision
 /// Based on empirical analysis: typically 496 bytes in transport WMOs
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoConvexVolumePlane {
     /// Plane normal vector
     pub normal: Vec3,
@@ -377,6 +391,7 @@ pub struct WmoConvexVolumePlane {
 /// Container for MCVP chunk data
 /// Found in Cataclysm+ WMOs, particularly transport objects like ships
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct WmoConvexVolumePlanes {
     /// List of convex volume planes
     /// Each plane defines a clipping boundary for the WMO collision system

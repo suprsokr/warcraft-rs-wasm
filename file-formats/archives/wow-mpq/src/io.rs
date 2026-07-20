@@ -17,6 +17,15 @@ pub use memory_map::{MemoryMapConfig, MemoryMapStats};
 #[cfg(feature = "mmap")]
 pub use memory_map::{MemoryMapManager, MemoryMappedArchive};
 
+/// Combined `Read + Seek` trait used for reader-based archive access.
+///
+/// This allows archives to be opened from any seekable byte source
+/// (files, `std::io::Cursor` over in-memory buffers, etc.), which is
+/// required for wasm targets where filesystem paths are unavailable.
+pub trait ReadSeek: Read + Seek {}
+
+impl<T: Read + Seek + ?Sized> ReadSeek for T {}
+
 /// Trait for reading from MPQ archives
 pub trait MpqRead: Read + Seek {
     /// Read exact number of bytes at the given offset

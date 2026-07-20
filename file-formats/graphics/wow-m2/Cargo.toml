@@ -22,7 +22,7 @@ memchr = { workspace = true }
 bitflags = { workspace = true }
 glam = { workspace = true }
 anyhow = { workspace = true }
-wow-blp = { path = "../wow-blp", version = "0.6.1" }
+wow-blp = { path = "../wow-blp", version = "0.6.1", optional = true }
 
 [dev-dependencies]
 criterion = { workspace = true }
@@ -35,7 +35,8 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 
 [features]
-default = []
+default = ["blp"]
+blp = ["dep:wow-blp"]
 serde-support = ["serde", "glam/serde"]
 
 [[bench]]

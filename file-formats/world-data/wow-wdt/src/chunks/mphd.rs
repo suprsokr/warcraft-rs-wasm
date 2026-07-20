@@ -7,6 +7,7 @@ use std::io::{Read, Write};
 bitflags! {
     /// MPHD flags controlling map behaviors and features
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize))]
     pub struct MphdFlags: u32 {
         /// Map is WMO-only (no terrain)
         const WDT_USES_GLOBAL_MAP_OBJ              = 0x0001;
@@ -45,6 +46,7 @@ bitflags! {
 
 /// MPHD chunk - Map header with global properties
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct MphdChunk {
     pub flags: MphdFlags,
 
@@ -65,6 +67,7 @@ pub struct MphdChunk {
 
 /// FileDataIDs for BfA+ format
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct FileDataIds {
     pub lgt: u32,
     pub occ: u32,

@@ -1,0 +1,32 @@
+{
+  "name": "wow-wdl-web",
+  "description": "Read and write World of Warcraft WDL low-resolution terrain files in the browser and Node.js (WebAssembly bindings for wow-wdl)",
+  "version": "0.6.4",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suprsokr/warcraft-rs-wasm"
+  },
+  "type": "module",
+  "main": "./wow_wdl_web.js",
+  "module": "./wow_wdl_web.js",
+  "types": "./wow_wdl_web.d.ts",
+  "sideEffects": false,
+  "files": [
+    "wow_wdl_web.js",
+    "wow_wdl_web.d.ts",
+    "wow_wdl_web_bg.wasm",
+    "wow_wdl_web_bg.wasm.d.ts",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "keywords": [
+    "warcraft",
+    "wow",
+    "wdl",
+    "terrain",
+    "wasm",
+    "webassembly"
+  ]
+}

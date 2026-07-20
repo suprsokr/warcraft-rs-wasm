@@ -2,6 +2,7 @@ use std::fmt;
 
 /// A 4-byte chunk identifier (magic)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct ChunkId(pub [u8; 4]);
 
 impl ChunkId {
@@ -44,6 +45,7 @@ impl fmt::Display for ChunkId {
 
 /// Represents a 3D vector
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -52,6 +54,7 @@ pub struct Vec3 {
 
 /// Represents a bounding box defined by min and max points
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct BoundingBox {
     pub min: Vec3,
     pub max: Vec3,
@@ -59,6 +62,7 @@ pub struct BoundingBox {
 
 /// Represents RGBA color
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
 pub struct Color {
     pub r: u8,
     pub g: u8,

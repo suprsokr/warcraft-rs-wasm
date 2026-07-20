@@ -30,13 +30,59 @@
 
 use std::fs;
 use std::io::Cursor;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::api::{LodAdt, Obj0Adt, RootAdt, Tex0Adt};
 use crate::error::Result;
 use crate::merger::merge_split_files;
 use crate::split_set::SplitFileSet;
 use crate::{ParsedAdt, parse_adt};
+
+fn wrong_file_type(details: &str) -> crate::error::AdtError {
+    crate::error::AdtError::ChunkParseError {
+        chunk: crate::chunk_id::ChunkId::MVER,
+        offset: 0,
+        details: details.to_string(),
+    }
+}
+
+/// Parse bytes as a root ADT, erroring on other file types.
+fn parse_root(bytes: &[u8]) -> Result<RootAdt> {
+    let mut cursor = Cursor::new(bytes);
+    match parse_adt(&mut cursor)? {
+        ParsedAdt::Root(r) => Ok(*r),
+        _ => Err(wrong_file_type(
+            "Expected root ADT file but got different file type",
+        )),
+    }
+}
+
+/// Parse bytes as a `_tex0` file; `None` if it's a different file type.
+fn parse_tex0(bytes: &[u8]) -> Result<Option<Tex0Adt>> {
+    let mut cursor = Cursor::new(bytes);
+    Ok(match parse_adt(&mut cursor)? {
+        ParsedAdt::Tex0(t) => Some(t),
+        _ => None,
+    })
+}
+
+/// Parse bytes as an `_obj0` file; `None` if it's a different file type.
+fn parse_obj0(bytes: &[u8]) -> Result<Option<Obj0Adt>> {
+    let mut cursor = Cursor::new(bytes);
+    Ok(match parse_adt(&mut cursor)? {
+        ParsedAdt::Obj0(o) => Some(o),
+        _ => None,
+    })
+}
+
+/// Parse bytes as a `_lod` file; `None` if it's a different file type.
+fn parse_lod(bytes: &[u8]) -> Result<Option<LodAdt>> {
+    let mut cursor = Cursor::new(bytes);
+    Ok(match parse_adt(&mut cursor)? {
+        ParsedAdt::Lod(l) => Some(l),
+        _ => None,
+    })
+}
 
 /// Complete set of parsed ADT split files.
 ///
@@ -128,54 +174,109 @@ impl AdtSet {
         let file_set = SplitFileSet::discover(root_path);
 
         // Load root (required)
-        let root_data = fs::read(&file_set.root)?;
-        let mut cursor = Cursor::new(root_data);
-        let root = match parse_adt(&mut cursor)? {
-            ParsedAdt::Root(r) => *r,
-            _ => {
-                return Err(crate::error::AdtError::ChunkParseError {
-                    chunk: crate::chunk_id::ChunkId::MVER,
-                    offset: 0,
-                    details: "Expected root ADT file but got different file type".to_string(),
-                });
-            }
-        };
+        let root = parse_root(&fs::read(&file_set.root)?)?;
 
-        // Load texture (optional but expected for Cataclysm+)
-        let texture = if let Some(tex_path) = &file_set.tex0 {
-            let tex_data = fs::read(tex_path)?;
-            let mut cursor = Cursor::new(tex_data);
-            match parse_adt(&mut cursor)? {
-                ParsedAdt::Tex0(t) => Some(t),
-                _ => None,
+        // Load split files (optional)
+        let load_optional = |path: Option<&PathBuf>| -> Result<Option<Vec<u8>>> {
+            match path {
+                Some(p) if p.exists() => Ok(Some(fs::read(p)?)),
+                _ => Ok(None),
             }
-        } else {
-            None
         };
+        let texture = load_optional(file_set.tex0.as_ref())?
+            .map(|b| parse_tex0(&b))
+            .transpose()?
+            .flatten();
+        let object = load_optional(file_set.obj0.as_ref())?
+            .map(|b| parse_obj0(&b))
+            .transpose()?
+            .flatten();
+        let lod = load_optional(file_set.lod.as_ref())?
+            .map(|b| parse_lod(&b))
+            .transpose()?
+            .flatten();
 
-        // Load object (optional but expected for Cataclysm+)
-        let object = if let Some(obj_path) = &file_set.obj0 {
-            let obj_data = fs::read(obj_path)?;
-            let mut cursor = Cursor::new(obj_data);
-            match parse_adt(&mut cursor)? {
-                ParsedAdt::Obj0(o) => Some(o),
-                _ => None,
-            }
-        } else {
-            None
-        };
+        Ok(AdtSet {
+            root,
+            texture,
+            object,
+            lod,
+        })
+    }
 
-        // Load LOD (optional, Legion+)
-        let lod = if let Some(lod_path) = &file_set.lod {
-            let lod_data = fs::read(lod_path)?;
-            let mut cursor = Cursor::new(lod_data);
-            match parse_adt(&mut cursor)? {
-                ParsedAdt::Lod(l) => Some(l),
-                _ => None,
-            }
-        } else {
-            None
-        };
+    /// Load a complete ADT set from in-memory bytes, without a filesystem.
+    ///
+    /// Given the root ADT's virtual name (used only to derive split file
+    /// names like `<stem>_tex0.adt`) and its raw bytes, this method calls
+    /// `resolve` for each expected split file name. The resolver returns
+    /// the file's bytes, or `None` when the file is absent (which simply
+    /// omits that part of the set, like a missing file on disk).
+    ///
+    /// This is the filesystem-free counterpart to
+    /// [`load_from_path`](AdtSet::load_from_path), intended for wasm
+    /// environments and non-filesystem sources (MPQ archives, network
+    /// fetches, in-memory maps).
+    ///
+    /// # Arguments
+    ///
+    /// * `root_name` - Virtual name of the root ADT (e.g.,
+    ///   `"World/Maps/Azeroth/Azeroth_30_30.adt"`)
+    /// * `root_bytes` - Raw bytes of the root ADT file
+    /// * `resolve` - Callback mapping a derived split file name to its
+    ///   bytes, or `None` if that file does not exist
+    ///
+    /// # Errors
+    ///
+    /// Returns error if the root bytes or any resolved split file can't
+    /// be parsed.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use std::collections::HashMap;
+    /// use wow_adt::adt_set::AdtSet;
+    ///
+    /// # fn example(root: Vec<u8>, tex0: Vec<u8>) -> Result<(), Box<dyn std::error::Error>> {
+    /// let mut files: HashMap<String, Vec<u8>> = HashMap::new();
+    /// files.insert("Azeroth_30_30_tex0.adt".to_string(), tex0);
+    ///
+    /// let adt_set = AdtSet::from_named_bytes("Azeroth_30_30.adt", &root, |name| {
+    ///     files.get(name).cloned()
+    /// })?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn from_named_bytes(
+        root_name: &str,
+        root_bytes: &[u8],
+        resolve: impl Fn(&str) -> Option<Vec<u8>>,
+    ) -> Result<Self> {
+        let file_set = SplitFileSet::discover(root_name);
+        let name_of = |path: &PathBuf| path.to_string_lossy().into_owned();
+
+        let root = parse_root(root_bytes)?;
+
+        let texture = file_set
+            .tex0
+            .as_ref()
+            .and_then(|p| resolve(&name_of(p)))
+            .map(|b| parse_tex0(&b))
+            .transpose()?
+            .flatten();
+        let object = file_set
+            .obj0
+            .as_ref()
+            .and_then(|p| resolve(&name_of(p)))
+            .map(|b| parse_obj0(&b))
+            .transpose()?
+            .flatten();
+        let lod = file_set
+            .lod
+            .as_ref()
+            .and_then(|p| resolve(&name_of(p)))
+            .map(|b| parse_lod(&b))
+            .transpose()?
+            .flatten();
 
         Ok(AdtSet {
             root,

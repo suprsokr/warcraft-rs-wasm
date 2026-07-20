@@ -1,0 +1,32 @@
+{
+  "name": "wow-m2-web",
+  "description": "Read World of Warcraft M2 model files in the browser and Node.js (WebAssembly bindings for wow-m2)",
+  "version": "0.6.4",
+  "license": "MIT OR Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/suprsokr/warcraft-rs-wasm"
+  },
+  "type": "module",
+  "main": "./wow_m2_web.js",
+  "module": "./wow_m2_web.js",
+  "types": "./wow_m2_web.d.ts",
+  "sideEffects": false,
+  "files": [
+    "wow_m2_web.js",
+    "wow_m2_web.d.ts",
+    "wow_m2_web_bg.wasm",
+    "wow_m2_web_bg.wasm.d.ts",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "keywords": [
+    "warcraft",
+    "wow",
+    "m2",
+    "model",
+    "wasm",
+    "webassembly"
+  ]
+}
