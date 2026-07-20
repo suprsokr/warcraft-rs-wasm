@@ -8,3 +8,6 @@ dist/
 
 # Generated wasm-bindgen/npm package output
 wrappers/*/pkg/
+
+# Local task tracking
+TASKS.md
