@@ -67,7 +67,7 @@ live under [`wrappers/`](wrappers/):
 
 | Wrapper | Wraps | Status |
 | ------- | ----- | ------ |
-| [`wow-adt-web`](wrappers/wow-adt-web) | `wow-adt` | read tiles (monolithic + split sets) |
+| [`wow-adt-web`](wrappers/wow-adt-web) | `wow-adt` | read/write tiles (monolithic + split sets) |
 | [`wow-blp-web`](wrappers/wow-blp-web) | `wow-blp` | decode/encode + PNG helpers |
 | [`wow-cdbc-web`](wrappers/wow-cdbc-web) | `wow-cdbc` | read DBC records with schema support |
 | [`wow-m2-web`](wrappers/wow-m2-web) | `wow-m2` | read M2 models + skin/anim parsers |

@@ -1,6 +1,6 @@
 # wow-adt-web
 
-Read World of Warcraft **ADT terrain tiles** in the browser and Node.js —
+Read and write World of Warcraft **ADT terrain tiles** in the browser and Node.js —
 WebAssembly bindings for the [`wow-adt`](../../file-formats/world-data/wow-adt)
 Rust crate. ADT files are the 16×16 chunk terrain tiles of a map: heightmaps,
 texture layers, alpha maps, liquid, and object placements. Everything happens
