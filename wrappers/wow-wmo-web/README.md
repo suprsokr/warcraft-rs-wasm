@@ -1,6 +1,6 @@
 # wow-wmo-web
 
-Read World of Warcraft **WMO world model files** in the browser and
+Read and write World of Warcraft **WMO world model files** in the browser and
 Node.js — WebAssembly bindings for the [`wow-wmo`](../../file-formats/graphics/wow-wmo)
 Rust crate. A WMO is one root file plus N group files (`name.wmo`,
 `name_000.wmo`, …). Everything happens in memory.
