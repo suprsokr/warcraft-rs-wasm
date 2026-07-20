@@ -1,6 +1,5 @@
 /target
 **/target
-Cargo.lock
 *.wasm
 .DS_Store
 node_modules/

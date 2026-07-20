@@ -14,8 +14,8 @@ use binrw::BinWrite;
 use crate::chunks::mcnk::McnkChunk;
 use crate::chunks::mh2o::{Mh2oChunk, Mh2oHeader};
 use crate::chunks::{
-    DoodadPlacement, McinChunk, McinEntry, MddfChunk, MhdrChunk, MmdxChunk, MmidChunk,
-    ModfChunk, MtexChunk, MverChunk, MwidChunk, MwmoChunk, WmoPlacement,
+    DoodadPlacement, McinChunk, McinEntry, MddfChunk, MhdrChunk, MmdxChunk, MmidChunk, ModfChunk,
+    MtexChunk, MverChunk, MwidChunk, MwmoChunk, WmoPlacement,
 };
 use crate::error::{AdtError, Result};
 use crate::{BuiltAdt, ChunkId};
@@ -258,9 +258,7 @@ pub fn serialize_to_writer<W: Write + Seek>(adt: &BuiltAdt, writer: &mut W) -> R
 /// Returns error if I/O or serialization fails.
 /// Create a minimal MCNK chunk for the given grid position.
 fn create_minimal_mcnk_at(x: u32, y: u32, version: crate::AdtVersion) -> McnkChunk {
-    use crate::chunks::mcnk::{
-        MclyChunk, MclyLayer, McnkFlags, McnkHeader, McnrChunk, McvtChunk,
-    };
+    use crate::chunks::mcnk::{MclyChunk, MclyLayer, McnkFlags, McnkHeader, McnrChunk, McvtChunk};
 
     let tile_size = 533.33333_f32 / 16.0;
     let pos_x = x as f32 * tile_size;
@@ -277,7 +275,9 @@ fn create_minimal_mcnk_at(x: u32, y: u32, version: crate::AdtVersion) -> McnkChu
 
     McnkChunk {
         header: McnkHeader {
-            flags: McnkFlags { value: if has_mccv { 0x40 } else { 0 } },
+            flags: McnkFlags {
+                value: if has_mccv { 0x40 } else { 0 },
+            },
             index_x: x,
             index_y: y,
             n_layers: 1,

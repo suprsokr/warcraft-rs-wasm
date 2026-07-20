@@ -36,17 +36,11 @@ use wow_adt::{ParsedAdt, parse_adt};
 use wow_web_common::{to_js, to_uint8_array};
 
 // Re-export chunk types we need for construction
-use wow_adt::chunks::mcnk::{
-    McalChunk, MclyChunk, MclyFlags, MclyLayer, McnkFlags, McvtChunk,
-};
-use wow_adt::chunks::{DoodadPlacement, WmoPlacement};
-use wow_adt::chunks::mh2o::{
-    Mh2oAttributes, Mh2oChunk, Mh2oEntry, Mh2oHeader, Mh2oInstance,
-};
-use wow_adt::chunks::mh2o::vertex::{
-    VertexDataArray, HeightDepthVertex,
-};
 use wow_adt::chunks::mcnk::mclq::{LiquidType, LiquidVertex, MclqChunk};
+use wow_adt::chunks::mcnk::{McalChunk, MclyChunk, MclyFlags, MclyLayer, McnkFlags, McvtChunk};
+use wow_adt::chunks::mh2o::vertex::{HeightDepthVertex, VertexDataArray};
+use wow_adt::chunks::mh2o::{Mh2oAttributes, Mh2oChunk, Mh2oEntry, Mh2oHeader, Mh2oInstance};
+use wow_adt::chunks::{DoodadPlacement, WmoPlacement};
 
 /// Accepts an expansion-ish name: "vanilla", "vanilla-late", "tbc",
 /// "wotlk", "cata", "mop".
@@ -393,7 +387,9 @@ impl Adt {
             if let Some(layers) = &mut chunk.layers {
                 // Remove any layer referencing the deleted texture,
                 // and decrement IDs > texture_id
-                layers.layers.retain(|layer| (layer.texture_id as usize) != texture_id);
+                layers
+                    .layers
+                    .retain(|layer| (layer.texture_id as usize) != texture_id);
                 for layer in &mut layers.layers {
                     if (layer.texture_id as usize) > texture_id {
                         layer.texture_id -= 1;
@@ -441,10 +437,7 @@ impl Adt {
                 chunk.header.n_layers = 1;
             }
         }
-        chunk.header.n_layers = chunk
-            .layers
-            .as_ref()
-            .map_or(0, |l| l.layers.len() as u32);
+        chunk.header.n_layers = chunk.layers.as_ref().map_or(0, |l| l.layers.len() as u32);
         Ok(())
     }
 
@@ -456,9 +449,10 @@ impl Adt {
         layer_index: usize,
     ) -> Result<(), JsError> {
         let chunk = self.chunk_at_mut(index)?;
-        let layers = chunk.layers.as_mut().ok_or_else(|| {
-            JsError::new("chunk has no texture layers")
-        })?;
+        let layers = chunk
+            .layers
+            .as_mut()
+            .ok_or_else(|| JsError::new("chunk has no texture layers"))?;
         if layer_index >= layers.layers.len() {
             return Err(JsError::new("layer index out of range"));
         }
@@ -650,10 +644,7 @@ impl Adt {
             let height = vert_data[i * 2 + 1];
             // Encode raw as 4 bytes
             let union_data = raw.to_le_bytes();
-            liquid_verts.push(LiquidVertex {
-                union_data,
-                height,
-            });
+            liquid_verts.push(LiquidVertex { union_data, height });
         }
 
         let mclq = MclqChunk {
@@ -714,35 +705,37 @@ impl Adt {
         let height = get_opt_u32(&config, "height")?.unwrap_or(8) as u8;
 
         // Read vertex data (optional Float32Array)
-        let vertex_data = if let Ok(v) = js_sys::Reflect::get(&config, &JsValue::from_str("vertexData")) {
-            if v.is_undefined() || v.is_null() {
-                None
-            } else {
-                let floats = js_sys::Float32Array::new(&v).to_vec();
-                let render_count = (width as usize + 1) * (height as usize + 1);
-                if floats.len() >= render_count {
-                    // Build sparse 9x9 array (81 elements)
-                    let mut arr: Box<[Option<HeightDepthVertex>; 81]> = Box::new([const { None }; 81]);
-                    for z in 0..=(height as usize) {
-                        for x in 0..=(width as usize) {
-                            let idx = z * (width as usize + 1) + x;
-                            let grid_idx = (z) * 9 + x;
-                            if idx < floats.len() && grid_idx < 81 {
-                                arr[grid_idx] = Some(HeightDepthVertex {
-                                    height: floats[idx],
-                                    depth: 0,
-                                });
+        let vertex_data =
+            if let Ok(v) = js_sys::Reflect::get(&config, &JsValue::from_str("vertexData")) {
+                if v.is_undefined() || v.is_null() {
+                    None
+                } else {
+                    let floats = js_sys::Float32Array::new(&v).to_vec();
+                    let render_count = (width as usize + 1) * (height as usize + 1);
+                    if floats.len() >= render_count {
+                        // Build sparse 9x9 array (81 elements)
+                        let mut arr: Box<[Option<HeightDepthVertex>; 81]> =
+                            Box::new([const { None }; 81]);
+                        for z in 0..=(height as usize) {
+                            for x in 0..=(width as usize) {
+                                let idx = z * (width as usize + 1) + x;
+                                let grid_idx = (z) * 9 + x;
+                                if idx < floats.len() && grid_idx < 81 {
+                                    arr[grid_idx] = Some(HeightDepthVertex {
+                                        height: floats[idx],
+                                        depth: 0,
+                                    });
+                                }
                             }
                         }
+                        Some(VertexDataArray::HeightDepth(arr))
+                    } else {
+                        None
                     }
-                    Some(VertexDataArray::HeightDepth(arr))
-                } else {
-                    None
                 }
-            }
-        } else {
-            None
-        };
+            } else {
+                None
+            };
 
         // Ensure MH2O chunk exists
         if self.root.water_data.is_none() {
@@ -752,7 +745,9 @@ impl Adt {
 
         // Ensure entry exists
         if index >= water.entries.len() {
-            return Err(JsError::new("chunk index out of range for MH2O (should be 0-255)"));
+            return Err(JsError::new(
+                "chunk index out of range for MH2O (should be 0-255)",
+            ));
         }
 
         let entry = &mut water.entries[index];
@@ -927,9 +922,9 @@ impl Adt {
         delta: f32,
     ) -> Result<(), JsError> {
         let chunk = self.chunk_at_mut(index)?;
-        let heights = chunk
-            .heights
-            .get_or_insert_with(|| McvtChunk { heights: vec![0.0f32; 145] });
+        let heights = chunk.heights.get_or_insert_with(|| McvtChunk {
+            heights: vec![0.0f32; 145],
+        });
 
         if heights.heights.len() < 145 {
             heights.heights.resize(145, 0.0);
@@ -948,11 +943,7 @@ impl Adt {
                     col as f32 + 0.5
                 };
                 let cy = y as f32;
-                let cx = if y % 2 == 0 {
-                    x as f32
-                } else {
-                    x as f32 + 0.5
-                };
+                let cx = if y % 2 == 0 { x as f32 } else { x as f32 + 0.5 };
 
                 let dy = fy - cy;
                 let dx = fx - cx;
@@ -983,9 +974,9 @@ impl Adt {
         target_height: f32,
     ) -> Result<(), JsError> {
         let chunk = self.chunk_at_mut(index)?;
-        let heights = chunk
-            .heights
-            .get_or_insert_with(|| McvtChunk { heights: vec![0.0f32; 145] });
+        let heights = chunk.heights.get_or_insert_with(|| McvtChunk {
+            heights: vec![0.0f32; 145],
+        });
 
         if heights.heights.len() < 145 {
             heights.heights.resize(145, 0.0);
@@ -1003,11 +994,7 @@ impl Adt {
                     col as f32 + 0.5
                 };
                 let cy = y as f32;
-                let cx = if y % 2 == 0 {
-                    x as f32
-                } else {
-                    x as f32 + 0.5
-                };
+                let cx = if y % 2 == 0 { x as f32 } else { x as f32 + 0.5 };
 
                 let dy = fy - cy;
                 let dx = fx - cx;
@@ -1055,11 +1042,7 @@ impl Adt {
                     col as f32 + 0.5
                 };
                 let cy = y as f32;
-                let cx = if y % 2 == 0 {
-                    x as f32
-                } else {
-                    x as f32 + 0.5
-                };
+                let cx = if y % 2 == 0 { x as f32 } else { x as f32 + 0.5 };
 
                 let dy = fy - cy;
                 let dx = fx - cx;
@@ -1072,7 +1055,11 @@ impl Adt {
                         let ncols = if no % 2 == 0 { 9 } else { 8 };
                         for nc in 0..ncols {
                             let nfy = no as f32;
-                            let nfx = if no % 2 == 0 { nc as f32 } else { nc as f32 + 0.5 };
+                            let nfx = if no % 2 == 0 {
+                                nc as f32
+                            } else {
+                                nc as f32 + 0.5
+                            };
                             let ndy = nfy - fy;
                             let ndx = nfx - fx;
                             if ndx * ndx + ndy * ndy <= r2 {
@@ -1172,7 +1159,10 @@ impl Adt {
         let mut packed_hi = [0u8; 8];
         for (i, &val) in data.iter().enumerate() {
             if val > 3 {
-                return Err(JsError::new(&format!("LOD entry {} is {}; must be 0-3", i, val)));
+                return Err(JsError::new(&format!(
+                    "LOD entry {} is {}; must be 0-3",
+                    i, val
+                )));
             }
             if i < 32 {
                 let byte_idx = i / 4;
@@ -1195,7 +1185,13 @@ impl Adt {
     /// `add` = true sets a hole, `add` = false clears a hole.
     /// `x`, `y` in 0..4 range.
     #[wasm_bindgen(js_name = setHoles)]
-    pub fn set_holes(&mut self, index: usize, x: usize, y: usize, add: bool) -> Result<(), JsError> {
+    pub fn set_holes(
+        &mut self,
+        index: usize,
+        x: usize,
+        y: usize,
+        add: bool,
+    ) -> Result<(), JsError> {
         if x >= 4 || y >= 4 {
             return Err(JsError::new("hole coords must be in 0..4"));
         }
@@ -1260,7 +1256,8 @@ impl Adt {
                     let byte_idx = layer_offset + (ty as usize * 64 + tx as usize);
                     if let Some(pixel) = alpha_data.get_mut(byte_idx) {
                         let blended = (*pixel as f32 * (1.0 - falloff * strength.clamp(0.0, 1.0))
-                            + target_val as f32 * falloff * strength.clamp(0.0, 1.0)) as u8;
+                            + target_val as f32 * falloff * strength.clamp(0.0, 1.0))
+                            as u8;
                         *pixel = blended;
                     }
                 }
@@ -1286,8 +1283,12 @@ impl Adt {
                 let low = b & 0x0F;
                 let high = (b >> 4) & 0x0F;
                 let base = i * 2;
-                if base < 4096 { out[base] = low | (low << 4); }
-                if base + 1 < 4096 { out[base + 1] = high | (high << 4); }
+                if base < 4096 {
+                    out[base] = low | (low << 4);
+                }
+                if base + 1 < 4096 {
+                    out[base + 1] = high | (high << 4);
+                }
             }
             alpha.data = out;
             chunk.header.flags.value |= 0x8000;
@@ -1319,7 +1320,9 @@ impl Adt {
         let base = chunk.layers.as_ref().map_or(0, |l| l.layers.len());
         let layer = MclyLayer {
             texture_id: tex_id,
-            flags: MclyFlags { value: if base > 0 { 0x100 } else { 0 } },
+            flags: MclyFlags {
+                value: if base > 0 { 0x100 } else { 0 },
+            },
             offset_in_mcal: 0,
             effect_id: 0,
         };
@@ -1332,7 +1335,9 @@ impl Adt {
                 chunk.header.n_layers = layers.layers.len() as u32;
             }
             None => {
-                chunk.layers = Some(MclyChunk { layers: vec![layer] });
+                chunk.layers = Some(MclyChunk {
+                    layers: vec![layer],
+                });
                 chunk.header.n_layers = 1;
             }
         }
@@ -1360,9 +1365,16 @@ impl Adt {
 
     /// Set MCLY flags for a layer.
     #[wasm_bindgen(js_name = setTextureFlags)]
-    pub fn set_texture_flags(&mut self, index: usize, layer_idx: usize, flags: u32) -> Result<(), JsError> {
+    pub fn set_texture_flags(
+        &mut self,
+        index: usize,
+        layer_idx: usize,
+        flags: u32,
+    ) -> Result<(), JsError> {
         let chunk = self.chunk_at_mut(index)?;
-        let layers = chunk.layers.as_mut()
+        let layers = chunk
+            .layers
+            .as_mut()
             .ok_or_else(|| JsError::new("chunk has no texture layers"))?;
         if layer_idx >= layers.layers.len() {
             return Err(JsError::new("layer index out of range"));
@@ -1384,7 +1396,9 @@ impl Adt {
             return Err(JsError::new("shadow map must be exactly 512 bytes"));
         }
         let chunk = self.chunk_at_mut(index)?;
-        chunk.shadow = Some(wow_adt::chunks::mcnk::McshChunk { shadow_map: data.to_vec() });
+        chunk.shadow = Some(wow_adt::chunks::mcnk::McshChunk {
+            shadow_map: data.to_vec(),
+        });
         chunk.header.flags.value |= 0x01;
         Ok(())
     }
@@ -1400,7 +1414,10 @@ impl Adt {
         for i in 0..145 {
             let o = i * 4;
             colors.push(wow_adt::chunks::mcnk::VertexColor {
-                b: data[o], g: data[o + 1], r: data[o + 2], a: data[o + 3],
+                b: data[o],
+                g: data[o + 1],
+                r: data[o + 2],
+                a: data[o + 3],
             });
         }
         chunk.vertex_colors = Some(wow_adt::chunks::mcnk::MccvChunk { colors });
@@ -1419,10 +1436,13 @@ impl Adt {
 
         // Try multi-layer first, fall back to single-layer
         let mclq = if let Some(layers) = &mut chunk.liquid_layers {
-            layers.first_mut()
+            layers
+                .first_mut()
                 .ok_or_else(|| JsError::new("chunk has no MCLQ liquid"))?
         } else {
-            chunk.liquid.as_mut()
+            chunk
+                .liquid
+                .as_mut()
                 .ok_or_else(|| JsError::new("chunk has no MCLQ liquid"))?
         };
 
@@ -1450,10 +1470,22 @@ impl Adt {
     /// Creates a flat water surface at `factor * max_terrain_height`. If the
     /// chunk has no MCLQ yet, one is created.
     #[wasm_bindgen(js_name = autoGenWater)]
-    pub fn auto_gen_water(&mut self, index: usize, factor: f32, liquid_type: u8) -> Result<(), JsError> {
+    pub fn auto_gen_water(
+        &mut self,
+        index: usize,
+        factor: f32,
+        liquid_type: u8,
+    ) -> Result<(), JsError> {
         let chunk = self.chunk_at_mut(index)?;
-        let max_h = chunk.heights.as_ref()
-            .and_then(|h| h.heights.iter().cloned().max_by(|a, b| a.partial_cmp(b).unwrap()))
+        let max_h = chunk
+            .heights
+            .as_ref()
+            .and_then(|h| {
+                h.heights
+                    .iter()
+                    .cloned()
+                    .max_by(|a, b| a.partial_cmp(b).unwrap())
+            })
             .unwrap_or(0.0);
         let water_level = max_h * factor;
 
@@ -1503,7 +1535,10 @@ impl Adt {
         fishable: JsValue,
         deep: JsValue,
     ) -> Result<(), JsError> {
-        let water = self.root.water_data.as_mut()
+        let water = self
+            .root
+            .water_data
+            .as_mut()
             .ok_or_else(|| JsError::new("no MH2O water data; call setMh2o first"))?;
         if index >= water.entries.len() {
             return Err(JsError::new("chunk index out of range"));
@@ -1522,12 +1557,11 @@ impl Adt {
     /// `data` is a `Float32Array` of heights. The array is mapped into the
     /// 9×9 sparse grid expected by MH2O.
     #[wasm_bindgen(js_name = setMh2oVertexData)]
-    pub fn set_mh2o_vertex_data(
-        &mut self,
-        index: usize,
-        data: JsValue,
-    ) -> Result<(), JsError> {
-        let water = self.root.water_data.as_mut()
+    pub fn set_mh2o_vertex_data(&mut self, index: usize, data: JsValue) -> Result<(), JsError> {
+        let water = self
+            .root
+            .water_data
+            .as_mut()
             .ok_or_else(|| JsError::new("no MH2O water data; call setMh2o first"))?;
         if index >= water.entries.len() {
             return Err(JsError::new("chunk index out of range"));
@@ -1573,16 +1607,36 @@ impl Adt {
             return Err(JsError::new("WMO placement index out of range"));
         }
         let p = &mut self.root.wmo_placements[index];
-        if let Some(v) = get_opt_u32(&changes, "nameId")? { p.name_id = v; }
-        if let Some(v) = get_opt_u32(&changes, "uniqueId")? { p.unique_id = v; }
-        if let Some(v) = get_opt_f32_array(&changes, "position", 3)? { p.position = v; }
-        if let Some(v) = get_opt_f32_array(&changes, "rotation", 3)? { p.rotation = v; }
-        if let Some(v) = get_opt_f32_array(&changes, "extentsMin", 3)? { p.extents_min = v; }
-        if let Some(v) = get_opt_f32_array(&changes, "extentsMax", 3)? { p.extents_max = v; }
-        if let Some(v) = get_opt_u32(&changes, "flags")? { p.flags = v as u16; }
-        if let Some(v) = get_opt_u32(&changes, "doodadSet")? { p.doodad_set = v as u16; }
-        if let Some(v) = get_opt_u32(&changes, "nameSet")? { p.name_set = v as u16; }
-        if let Some(v) = get_opt_u32(&changes, "scale")? { p.scale = v as u16; }
+        if let Some(v) = get_opt_u32(&changes, "nameId")? {
+            p.name_id = v;
+        }
+        if let Some(v) = get_opt_u32(&changes, "uniqueId")? {
+            p.unique_id = v;
+        }
+        if let Some(v) = get_opt_f32_array(&changes, "position", 3)? {
+            p.position = v;
+        }
+        if let Some(v) = get_opt_f32_array(&changes, "rotation", 3)? {
+            p.rotation = v;
+        }
+        if let Some(v) = get_opt_f32_array(&changes, "extentsMin", 3)? {
+            p.extents_min = v;
+        }
+        if let Some(v) = get_opt_f32_array(&changes, "extentsMax", 3)? {
+            p.extents_max = v;
+        }
+        if let Some(v) = get_opt_u32(&changes, "flags")? {
+            p.flags = v as u16;
+        }
+        if let Some(v) = get_opt_u32(&changes, "doodadSet")? {
+            p.doodad_set = v as u16;
+        }
+        if let Some(v) = get_opt_u32(&changes, "nameSet")? {
+            p.name_set = v as u16;
+        }
+        if let Some(v) = get_opt_u32(&changes, "scale")? {
+            p.scale = v as u16;
+        }
         Ok(())
     }
 
@@ -1591,17 +1645,33 @@ impl Adt {
     /// `changes` is a JS object with any of: `nameId`, `uniqueId`, `position`,
     /// `rotation`, `scale`, `flags`.
     #[wasm_bindgen(js_name = updateDoodadPlacement)]
-    pub fn update_doodad_placement(&mut self, index: usize, changes: JsValue) -> Result<(), JsError> {
+    pub fn update_doodad_placement(
+        &mut self,
+        index: usize,
+        changes: JsValue,
+    ) -> Result<(), JsError> {
         if index >= self.root.doodad_placements.len() {
             return Err(JsError::new("doodad placement index out of range"));
         }
         let p = &mut self.root.doodad_placements[index];
-        if let Some(v) = get_opt_u32(&changes, "nameId")? { p.name_id = v; }
-        if let Some(v) = get_opt_u32(&changes, "uniqueId")? { p.unique_id = v; }
-        if let Some(v) = get_opt_f32_array(&changes, "position", 3)? { p.position = v; }
-        if let Some(v) = get_opt_f32_array(&changes, "rotation", 3)? { p.rotation = v; }
-        if let Some(v) = get_opt_u32(&changes, "scale")? { p.scale = v as u16; }
-        if let Some(v) = get_opt_u32(&changes, "flags")? { p.flags = v as u16; }
+        if let Some(v) = get_opt_u32(&changes, "nameId")? {
+            p.name_id = v;
+        }
+        if let Some(v) = get_opt_u32(&changes, "uniqueId")? {
+            p.unique_id = v;
+        }
+        if let Some(v) = get_opt_f32_array(&changes, "position", 3)? {
+            p.position = v;
+        }
+        if let Some(v) = get_opt_f32_array(&changes, "rotation", 3)? {
+            p.rotation = v;
+        }
+        if let Some(v) = get_opt_u32(&changes, "scale")? {
+            p.scale = v as u16;
+        }
+        if let Some(v) = get_opt_u32(&changes, "flags")? {
+            p.flags = v as u16;
+        }
         Ok(())
     }
 
@@ -1636,8 +1706,16 @@ impl Adt {
         }
         let p = &mut self.root.wmo_placements[index];
         let half = 5.0f32;
-        p.extents_min = [p.position[0] - half, p.position[1] - half, p.position[2] - half];
-        p.extents_max = [p.position[0] + half, p.position[1] + half, p.position[2] + half];
+        p.extents_min = [
+            p.position[0] - half,
+            p.position[1] - half,
+            p.position[2] - half,
+        ];
+        p.extents_max = [
+            p.position[0] + half,
+            p.position[1] + half,
+            p.position[2] + half,
+        ];
         Ok(())
     }
 
@@ -1680,7 +1758,10 @@ impl Adt {
             .ok_or_else(|| JsError::new("chunk index out of range"))
     }
 
-    fn chunk_at_mut(&mut self, index: usize) -> Result<&mut wow_adt::chunks::mcnk::McnkChunk, JsError> {
+    fn chunk_at_mut(
+        &mut self,
+        index: usize,
+    ) -> Result<&mut wow_adt::chunks::mcnk::McnkChunk, JsError> {
         self.root
             .mcnk_chunks
             .get_mut(index)
@@ -1728,8 +1809,14 @@ impl Adt {
             let (lh, rh) = {
                 let left = &chunks[left_idx];
                 let right = &chunks[right_idx];
-                let lh = left.heights.as_ref().and_then(|h| h.heights.get(li).copied());
-                let rh = right.heights.as_ref().and_then(|h| h.heights.get(ri).copied());
+                let lh = left
+                    .heights
+                    .as_ref()
+                    .and_then(|h| h.heights.get(li).copied());
+                let rh = right
+                    .heights
+                    .as_ref()
+                    .and_then(|h| h.heights.get(ri).copied());
                 (lh, rh)
             };
 
@@ -1764,8 +1851,14 @@ impl Adt {
             let (th, bh) = {
                 let top = &chunks[top_idx];
                 let bottom = &chunks[bottom_idx];
-                let th = top.heights.as_ref().and_then(|h| h.heights.get(ti).copied());
-                let bh = bottom.heights.as_ref().and_then(|h| h.heights.get(bi).copied());
+                let th = top
+                    .heights
+                    .as_ref()
+                    .and_then(|h| h.heights.get(ti).copied());
+                let bh = bottom
+                    .heights
+                    .as_ref()
+                    .and_then(|h| h.heights.get(bi).copied());
                 (th, bh)
             };
 
@@ -1849,8 +1942,12 @@ impl Adt {
             // Recompress each layer using optimal format
             let mut new_mcal = Vec::new();
             for (i, layer_data) in per_layer.iter().enumerate() {
-                let compressed = AlphaMap::with_optimal_format(layer_data)
-                    .unwrap_or_else(|_| AlphaMap::new(layer_data.clone(), wow_adt::chunks::mcnk::mcal::AlphaFormat::Uncompressed4096));
+                let compressed = AlphaMap::with_optimal_format(layer_data).unwrap_or_else(|_| {
+                    AlphaMap::new(
+                        layer_data.clone(),
+                        wow_adt::chunks::mcnk::mcal::AlphaFormat::Uncompressed4096,
+                    )
+                });
 
                 let layer_idx = i + 1;
                 layers.layers[layer_idx].offset_in_mcal = new_mcal.len() as u32;
@@ -1944,7 +2041,11 @@ fn get_f32_array(obj: &JsValue, key: &str, expected: usize) -> Result<[f32; 3], 
     Ok(result)
 }
 
-fn get_opt_f32_array(obj: &JsValue, key: &str, expected: usize) -> Result<Option<[f32; 3]>, JsError> {
+fn get_opt_f32_array(
+    obj: &JsValue,
+    key: &str,
+    expected: usize,
+) -> Result<Option<[f32; 3]>, JsError> {
     let val = match js_sys::Reflect::get(obj, &JsValue::from_str(key)) {
         Ok(v) => v,
         Err(_) => return Ok(None),
@@ -1982,7 +2083,9 @@ fn get_opt_u64_str(obj: &JsValue, key: &str) -> Result<Option<u64>, JsError> {
         })?;
         return Ok(Some(parsed));
     }
-    Err(JsError::new(&format!("field {key} must be a number or numeric string")))
+    Err(JsError::new(&format!(
+        "field {key} must be a number or numeric string"
+    )))
 }
 
 /// Parse a JsValue that can be a number or a numeric string into u64.
@@ -1991,7 +2094,9 @@ fn parse_u64(v: &JsValue) -> Result<u64, JsError> {
         return Ok(n as u64);
     }
     if let Some(s) = v.as_string() {
-        return s.parse::<u64>().map_err(|_| JsError::new("expected a number or numeric string"));
+        return s
+            .parse::<u64>()
+            .map_err(|_| JsError::new("expected a number or numeric string"));
     }
     Err(JsError::new("expected a number or numeric string"))
 }
