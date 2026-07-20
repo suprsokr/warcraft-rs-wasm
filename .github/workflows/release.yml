@@ -1,11 +1,12 @@
 name: Release
 
-# Creates a tagged GitHub release and attaches the prebuilt wasm-bindgen
-# web packages (the same output as `wasm-bindgen --target web`, plus
-# package.json/README/licenses) so JS/TS users can download and use them
-# without a Rust toolchain. No Rust library artifacts are published: Rust
-# consumers build from source (git dependency) for whatever target they
-# need — prebuilt rlibs would be tied to one exact rustc version.
+# Creates a tagged GitHub release and publishes the prebuilt wasm-bindgen
+# web packages to both GitHub releases and npm. The packages are the same
+# output as `wasm-bindgen --target web`, plus package.json/README/licenses,
+# so JS/TS users can download or install them without a Rust toolchain.
+# No Rust library artifacts are published: Rust consumers build from source
+# (git dependency) for whatever target they need — prebuilt rlibs would be
+# tied to one exact rustc version.
 
 on:
   push:
@@ -63,6 +64,14 @@ jobs:
           cp "wrappers/${{ matrix.wrapper }}/package.json" "$pkg/"
           cp "wrappers/${{ matrix.wrapper }}/README.md" "$pkg/"
           cp LICENSE-APACHE LICENSE-MIT "$pkg/"
+          # Pin the published npm version to the git tag (strip the leading 'v').
+          node -e "
+            const fs = require('fs');
+            const pkgPath = '$pkg/package.json';
+            const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+            pkg.version = '${GITHUB_REF_NAME#v}';
+            fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+          "
 
       - name: Smoke test
         run: node "wrappers/${{ matrix.wrapper }}/tests/smoke.mjs"
@@ -99,6 +108,35 @@ jobs:
           files: "*.tar.gz"
           generate_release_notes: true
 
-  # Note: no npm/crates.io publishing yet. When we decide to publish to
-  # npm, add a job here that builds wrappers/*/pkg and runs `npm publish`
-  # (needs an NPM_TOKEN secret).
+  publish-npm:
+    name: Publish to npm
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "*-web"
+          merge-multiple: true
+
+      - name: Publish packages
+        run: |
+          set -euo pipefail
+          for tarball in ./*.tar.gz; do
+            tmp=$(mktemp -d)
+            tar -xzf "$tarball" -C "$tmp"
+            cd "$tmp/pkg"
+            # The package.json version was already set to the git tag in the build job.
+            npm publish --provenance --access public
+            cd -
+            rm -rf "$tmp"
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

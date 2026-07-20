@@ -4,6 +4,30 @@ WebAssembly bindings for [`wow-cdbc`](../../file-formats/database/wow-cdbc) —
 parse and write World of Warcraft DBC (client database) files from
 JavaScript / TypeScript.
 
+## Getting the package
+
+Install from npm (recommended for JS/TS):
+
+```sh
+npm install wow-cdbc-web
+```
+
+Or download `wow-cdbc-web-<version>-web.tar.gz` from the
+[GitHub releases](https://github.com/suprsokr/warcraft-rs-wasm/releases)
+and unpack it (`tar xzf ...` creates `./pkg/`), or build it yourself:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli
+
+cargo build --release -p wow-cdbc-web --target wasm32-unknown-unknown
+wasm-bindgen --target web --out-dir wrappers/wow-cdbc-web/pkg \
+  target/wasm32-unknown-unknown/release/wow_cdbc_web.wasm
+```
+
+If you downloaded the tarball or built locally, change the import below
+from `wow-cdbc-web` to `./pkg/wow_cdbc_web.js`.
+
 ## API
 
 ### `DbcFile`

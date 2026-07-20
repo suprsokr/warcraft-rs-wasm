@@ -10,8 +10,13 @@ callback and exposed as typed arrays.
 
 ## Getting the package
 
-Nothing is published to npm yet. Either download
-`wow-wmo-web-<version>-web.tar.gz` from the
+Install from npm (recommended for JS/TS):
+
+```sh
+npm install wow-wmo-web
+```
+
+Or download `wow-wmo-web-<version>-web.tar.gz` from the
 [GitHub releases](https://github.com/suprsokr/warcraft-rs-wasm/releases)
 and unpack it (`tar xzf ...` creates `./pkg/`), or build it yourself:
 
@@ -27,7 +32,9 @@ wasm-bindgen --target web --out-dir wrappers/wow-wmo-web/pkg \
 ## Usage
 
 ```js
-import init, { WmoFile } from "./pkg/wow_wmo_web.js";
+import init, { WmoFile } from "wow-wmo-web";
+// If you downloaded the tarball or built locally, use:
+// import init, { WmoFile } from "./pkg/wow_wmo_web.js";
 await init();
 
 // Monolithic root-only (group files not loaded)

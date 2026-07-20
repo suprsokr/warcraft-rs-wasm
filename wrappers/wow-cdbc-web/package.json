@@ -1,19 +1,32 @@
 {
   "name": "wow-cdbc-web",
-  "version": "0.6.4",
-  "description": "wasm-bindgen web bindings for the wow-cdbc DBC database library",
-  "main": "wow_cdbc_web.js",
-  "types": "wow_cdbc_web.d.ts",
-  "type": "module",
-  "files": [
-    "wow_cdbc_web.js",
-    "wow_cdbc_web_bg.wasm",
-    "wow_cdbc_web.d.ts"
-  ],
+  "description": "Read and write World of Warcraft DBC database files in the browser and Node.js (WebAssembly bindings for wow-cdbc)",
+  "version": "0.6.6",
+  "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/suprsokr/warcraft-rs-wasm"
+    "url": "git+https://github.com/suprsokr/warcraft-rs-wasm.git"
   },
-  "license": "MIT OR Apache-2.0",
-  "keywords": ["wow", "warcraft", "dbc", "database", "wasm"]
+  "type": "module",
+  "main": "./wow_cdbc_web.js",
+  "module": "./wow_cdbc_web.js",
+  "types": "./wow_cdbc_web.d.ts",
+  "sideEffects": false,
+  "files": [
+    "wow_cdbc_web.js",
+    "wow_cdbc_web.d.ts",
+    "wow_cdbc_web_bg.wasm",
+    "wow_cdbc_web_bg.wasm.d.ts",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT"
+  ],
+  "keywords": [
+    "warcraft",
+    "wow",
+    "dbc",
+    "database",
+    "wasm",
+    "webassembly"
+  ]
 }

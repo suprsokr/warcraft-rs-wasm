@@ -7,8 +7,13 @@ out. No filesystem access needed.
 
 ## Getting the package
 
-Nothing is published to npm yet. Either download
-`wow-mpq-web-<version>-web.tar.gz` from the
+Install from npm (recommended for JS/TS):
+
+```sh
+npm install wow-mpq-web
+```
+
+Or download `wow-mpq-web-<version>-web.tar.gz` from the
 [GitHub releases](https://github.com/suprsokr/warcraft-rs-wasm/releases)
 and unpack it (`tar xzf ...` creates `./pkg/`), or build it yourself:
 
@@ -24,7 +29,9 @@ wasm-bindgen --target web --out-dir wrappers/wow-mpq-web/pkg \
 ## Usage
 
 ```js
-import init, { MpqArchive } from "./pkg/wow_mpq_web.js";
+import init, { MpqArchive } from "wow-mpq-web";
+// If you downloaded the tarball or built locally, use:
+// import init, { MpqArchive } from "./pkg/wow_mpq_web.js";
 await init();
 
 // Reading: open an archive from a <input type="file">, fetch(), etc.

@@ -11,8 +11,13 @@ This keeps the library fully in-memory and composes naturally with
 
 ## Getting the package
 
-Nothing is published to npm yet. Either download
-`wow-m2-web-<version>-web.tar.gz` from the
+Install from npm (recommended for JS/TS):
+
+```sh
+npm install wow-m2-web
+```
+
+Or download `wow-m2-web-<version>-web.tar.gz` from the
 [GitHub releases](https://github.com/suprsokr/warcraft-rs-wasm/releases)
 and unpack it (`tar xzf ...` creates `./pkg/`), or build it yourself:
 
@@ -28,7 +33,9 @@ wasm-bindgen --target web --out-dir wrappers/wow-m2-web/pkg \
 ## Usage
 
 ```js
-import init, { M2File, M2Skin } from "./pkg/wow_m2_web.js";
+import init, { M2File, M2Skin } from "wow-m2-web";
+// If you downloaded the tarball or built locally, use:
+// import init, { M2File, M2Skin } from "./pkg/wow_m2_web.js";
 await init();
 
 const model = new M2File(new Uint8Array(await file.arrayBuffer()));

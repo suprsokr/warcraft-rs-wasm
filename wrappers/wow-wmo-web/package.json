@@ -1,11 +1,11 @@
 {
   "name": "wow-wmo-web",
   "description": "Read World of Warcraft WMO world model files in the browser and Node.js (WebAssembly bindings for wow-wmo)",
-  "version": "0.6.4",
+  "version": "0.6.6",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/suprsokr/warcraft-rs-wasm"
+    "url": "git+https://github.com/suprsokr/warcraft-rs-wasm.git"
   },
   "type": "module",
   "main": "./wow_wmo_web.js",

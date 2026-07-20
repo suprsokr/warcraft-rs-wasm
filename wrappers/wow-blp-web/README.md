@@ -10,8 +10,13 @@ Supports BLP1 (Warcraft III) and BLP2 (WoW) with all encodings: palettized
 
 ## Getting the package
 
-Nothing is published to npm yet. Either download
-`wow-blp-web-<version>-web.tar.gz` from the
+Install from npm (recommended for JS/TS):
+
+```sh
+npm install wow-blp-web
+```
+
+Or download `wow-blp-web-<version>-web.tar.gz` from the
 [GitHub releases](https://github.com/suprsokr/warcraft-rs-wasm/releases)
 and unpack it (`tar xzf ...` creates `./pkg/`), or build it yourself:
 
@@ -27,7 +32,9 @@ wasm-bindgen --target web --out-dir wrappers/wow-blp-web/pkg \
 ## Usage
 
 ```js
-import init, { decodeBlp, encodeBlp, blpToPng, pngToBlp } from "./pkg/wow_blp_web.js";
+import init, { decodeBlp, encodeBlp, blpToPng, pngToBlp } from "wow-blp-web";
+// If you downloaded the tarball or built locally, use:
+// import init, { decodeBlp, encodeBlp, blpToPng, pngToBlp } from "./pkg/wow_blp_web.js";
 await init();
 
 // Decode: metadata + RGBA pixels of one mipmap level (default 0)

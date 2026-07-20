@@ -7,8 +7,13 @@ optional global WMO placement. Everything happens in memory.
 
 ## Getting the package
 
-Nothing is published to npm yet. Either download
-`wow-wdt-web-<version>-web.tar.gz` from the
+Install from npm (recommended for JS/TS):
+
+```sh
+npm install wow-wdt-web
+```
+
+Or download `wow-wdt-web-<version>-web.tar.gz` from the
 [GitHub releases](https://github.com/suprsokr/warcraft-rs-wasm/releases)
 and unpack it (`tar xzf ...` creates `./pkg/`), or build it yourself:
 
@@ -24,7 +29,9 @@ wasm-bindgen --target web --out-dir wrappers/wow-wdt-web/pkg \
 ## Usage
 
 ```js
-import init, { WdtFile } from "./pkg/wow_wdt_web.js";
+import init, { WdtFile } from "wow-wdt-web";
+// If you downloaded the tarball or built locally, use:
+// import init, { WdtFile } from "./pkg/wow_wdt_web.js";
 await init();
 
 // The WDT format is version-dependent, so a version is required:

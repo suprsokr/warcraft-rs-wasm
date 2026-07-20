@@ -79,10 +79,29 @@ live under [`wrappers/`](wrappers/):
 Each wrapper has its own README with API details and code examples (linked
 in the table above).
 
-Nothing is published to npm yet, so there are two ways to get the
-bindings:
+There are three ways to get the bindings:
 
-**Option 1 — download a prebuilt package.** Every
+**Option 1 — install from npm (recommended for JS/TS).** Every wrapper is
+published to npm alongside each GitHub release:
+
+```sh
+npm install wow-mpq-web
+```
+
+```js
+import init, { MpqArchive } from "wow-mpq-web";
+await init();
+
+const archive = new MpqArchive(new Uint8Array(await file.arrayBuffer()));
+console.log(archive.list());                // [{name, size, ...}, ...]
+const data = archive.readFile("patch.m2");  // Uint8Array
+```
+
+The packages work with bundlers (Vite, Webpack, Rollup, etc.) and in plain
+browser ES modules via a CDN such as `https://esm.sh/wow-mpq-web` or
+`https://cdn.jsdelivr.net/npm/wow-mpq-web`.
+
+**Option 2 — download a prebuilt package.** Every
 [GitHub release](https://github.com/suprsokr/warcraft-rs-wasm/releases)
 attaches `<wrapper>-<version>-web.tar.gz` for each wrapper: the
 ready-to-use wasm-bindgen output (`.js`, `.d.ts`, `.wasm`) plus
@@ -94,7 +113,12 @@ Unpack it into your project and import it directly:
 tar xzf wow-mpq-web-*-web.tar.gz   # creates ./pkg/
 ```
 
-**Option 2 — build it yourself:**
+```js
+import init, { MpqArchive } from "./pkg/wow_mpq_web.js";
+await init();
+```
+
+**Option 3 — build it yourself:**
 
 ```sh
 rustup target add wasm32-unknown-unknown
@@ -105,23 +129,44 @@ wasm-bindgen --target web --out-dir wrappers/wow-mpq-web/pkg \
   target/wasm32-unknown-unknown/release/wow_mpq_web.wasm
 ```
 
-Either way, import the ES module from your app (via a bundler, or plain
-browser modules with `await init()`). A minimal example — see each
-wrapper's README for its full API:
-
-```js
-import init, { MpqArchive } from "./pkg/wow_mpq_web.js";
-await init();
-
-const archive = new MpqArchive(new Uint8Array(await file.arrayBuffer()));
-console.log(archive.list());                // [{name, size, ...}, ...]
-const data = archive.readFile("patch.m2");  // Uint8Array
-```
+See each wrapper's README for its full API.
 
 Notes:
 
 - Everything happens in memory: bytes in (`Uint8Array`), bytes out. No
   filesystem access is needed, so this works in any browser.
+
+### Using the wrappers on GitHub Pages
+
+Download a prebuilt web package from the
+[latest release](https://github.com/suprsokr/warcraft-rs-wasm/releases/latest)
+and drop the extracted `pkg/` folder into your GitHub Pages repository
+(for example, under `wasm/wow-mpq-web/`). GitHub Pages will serve the
+`.js` and `.wasm` files as static assets, and because they share the same
+origin as your page, the WASM loads without any CORS configuration.
+
+The `wasm-bindgen --target web` output loads the `.wasm` file relative to
+its own `.js` file (`import.meta.url`), so keep the files together in the
+same directory.
+
+Example in a GitHub Pages page:
+
+```html
+<script type="module">
+  import init, { MpqArchive } from './wasm/wow-mpq-web/wow_mpq_web.js';
+  await init();
+
+  const archive = new MpqArchive(new Uint8Array(await file.arrayBuffer()));
+  console.log(archive.list());
+</script>
+```
+
+> Note: the built wrappers are only attached to GitHub releases and
+> published to npm; they are not committed to the repository, so you
+> cannot fetch them directly from `raw.githubusercontent.com` or
+> `cdn.jsdelivr.net/gh/...`. For GitHub Pages, host the extracted package
+> on your own site, or load the npm package from a CDN such as
+> `esm.sh` or `cdn.jsdelivr.net/npm/...`.
 
 ## What this repository is for
 
@@ -131,11 +176,12 @@ Notes:
 - CI that continuously verifies both wasm targets, the wasm-bindgen
   wrappers (with a Node smoke test), and native tests.
 
-Nothing is published to crates.io or npm yet: Rust consumers should use git
-dependencies (`wow-mpq = { git = "...", ... }`), and JS consumers either
-download the prebuilt web packages attached to
-[GitHub Releases](https://github.com/suprsokr/warcraft-rs-wasm/releases) or
-build the bindings locally.
+Nothing is published to crates.io yet: Rust consumers should use git
+dependencies (`wow-mpq = { git = "...", ... }`). The wasm-bindgen wrappers
+are published to npm and attached to
+[GitHub Releases](https://github.com/suprsokr/warcraft-rs-wasm/releases),
+so JS/TS consumers can install them normally, download a prebuilt tarball,
+or build the bindings locally.
 
 ## License
 

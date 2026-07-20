@@ -15,8 +15,13 @@ placements in memory, then `export()` back to bytes.
 
 ## Getting the package
 
-Nothing is published to npm yet. Either download
-`wow-adt-web-<version>-web.tar.gz` from the
+Install from npm (recommended for JS/TS):
+
+```sh
+npm install wow-adt-web
+```
+
+Or download `wow-adt-web-<version>-web.tar.gz` from the
 [GitHub releases](https://github.com/suprsokr/warcraft-rs-wasm/releases)
 and unpack it (`tar xzf ...` creates `./pkg/`), or build it yourself:
 
@@ -32,7 +37,9 @@ wasm-bindgen --target web --out-dir wrappers/wow-adt-web/pkg \
 ## Usage
 
 ```js
-import init, { AdtFile } from "./pkg/wow_adt_web.js";
+import init, { AdtFile } from "wow-adt-web";
+// If you downloaded the tarball or built locally, use:
+// import init, { AdtFile } from "./pkg/wow_adt_web.js";
 await init();
 
 // Monolithic (pre-Cataclysm) tile — or the root file of a split set:

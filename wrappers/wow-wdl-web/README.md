@@ -8,8 +8,13 @@ and the world map. Everything happens in memory.
 
 ## Getting the package
 
-Nothing is published to npm yet. Either download
-`wow-wdl-web-<version>-web.tar.gz` from the
+Install from npm (recommended for JS/TS):
+
+```sh
+npm install wow-wdl-web
+```
+
+Or download `wow-wdl-web-<version>-web.tar.gz` from the
 [GitHub releases](https://github.com/suprsokr/warcraft-rs-wasm/releases)
 and unpack it (`tar xzf ...` creates `./pkg/`), or build it yourself:
 
@@ -25,7 +30,9 @@ wasm-bindgen --target web --out-dir wrappers/wow-wdl-web/pkg \
 ## Usage
 
 ```js
-import init, { WdlFile } from "./pkg/wow_wdl_web.js";
+import init, { WdlFile } from "wow-wdl-web";
+// If you downloaded the tarball or built locally, use:
+// import init, { WdlFile } from "./pkg/wow_wdl_web.js";
 await init();
 
 const wdl = new WdlFile(new Uint8Array(await file.arrayBuffer()));
