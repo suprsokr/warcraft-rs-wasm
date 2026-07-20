@@ -72,6 +72,7 @@ fn create_mcnk_with_heights(base_height: f32) -> McnkChunk {
         vertex_lighting: None,
         sound_emitters: None,
         liquid: None,
+        liquid_layers: None,
         doodad_disable: None,
         blend_batches: None,
     }

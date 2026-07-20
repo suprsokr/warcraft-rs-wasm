@@ -721,7 +721,7 @@ impl AdtBuilder {
         }
 
         // Build validated ADT
-        Ok(BuiltAdt::new(
+        let built = BuiltAdt::new(
             self.version,
             self.textures,
             self.models,
@@ -738,7 +738,9 @@ impl AdtBuilder {
             self.blend_mesh_bounds,
             self.blend_mesh_vertices,
             self.blend_mesh_indices,
-        ))
+        );
+
+        Ok(built)
     }
 }
 

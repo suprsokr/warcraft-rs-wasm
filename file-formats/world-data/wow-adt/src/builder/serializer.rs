@@ -11,13 +11,11 @@ use std::io::{Seek, SeekFrom, Write};
 
 use binrw::BinWrite;
 
-use crate::chunks::mcnk::{
-    MccvChunk, MclyChunk, MclyLayer, McnkChunk, McnkFlags, McnkHeader, McnrChunk, McvtChunk,
-};
+use crate::chunks::mcnk::McnkChunk;
 use crate::chunks::mh2o::{Mh2oChunk, Mh2oHeader};
 use crate::chunks::{
-    McinChunk, McinEntry, MddfChunk, MhdrChunk, MmdxChunk, MmidChunk, ModfChunk, MtexChunk,
-    MverChunk, MwidChunk, MwmoChunk,
+    DoodadPlacement, McinChunk, McinEntry, MddfChunk, MhdrChunk, MmdxChunk, MmidChunk,
+    ModfChunk, MtexChunk, MverChunk, MwidChunk, MwmoChunk, WmoPlacement,
 };
 use crate::error::{AdtError, Result};
 use crate::{BuiltAdt, ChunkId};
@@ -182,33 +180,38 @@ pub fn serialize_to_writer<W: Write + Seek>(adt: &BuiltAdt, writer: &mut W) -> R
 
     // 20-275. Write MCNK chunks (terrain tiles)
     // Use user-provided chunks if available, otherwise generate 256 minimal chunks
-    chunk_positions.mcnk_start = writer.stream_position()?;
-
-    if adt.mcnk_chunks().is_empty() {
+    // Build mutable MCNK list for pre-write processing (MCRF auto-gen, etc.)
+    let mut mcnk_list: Vec<McnkChunk> = if adt.mcnk_chunks().is_empty() {
         // No user chunks - generate 256 minimal MCNK chunks (16x16 grid)
-        for y in 0..16 {
-            for x in 0..16 {
-                let mcnk_start = writer.stream_position()?;
-                write_minimal_mcnk_chunk(writer, x, y, adt.version())?;
-                let mcnk_end = writer.stream_position()?;
-                let mcnk_size = (mcnk_end - mcnk_start - 8) as u32;
-                chunk_positions.mcnk_entries.push((mcnk_start, mcnk_size));
+        let mut chunks = Vec::with_capacity(256);
+        for y in 0..16u32 {
+            for x in 0..16u32 {
+                chunks.push(create_minimal_mcnk_at(x, y, adt.version()));
             }
         }
+        chunks
     } else {
-        // Write user-provided MCNK chunks
-        for mcnk in adt.mcnk_chunks() {
-            let mcnk_start = writer.stream_position()?;
-            write_mcnk_chunk(writer, mcnk)?;
-            let mcnk_end = writer.stream_position()?;
-            let mcnk_size = (mcnk_end - mcnk_start - 8) as u32;
-            chunk_positions.mcnk_entries.push((mcnk_start, mcnk_size));
-        }
+        adt.mcnk_chunks().to_vec()
+    };
 
-        // Pad to 256 entries if fewer chunks provided
-        while chunk_positions.mcnk_entries.len() < 256 {
-            chunk_positions.mcnk_entries.push((0, 0));
-        }
+    let _user_provided_count = mcnk_list.len();
+
+    // Auto-generate MCRF references for all chunks
+    generate_mcrf_for_chunks(
+        &mut mcnk_list,
+        adt.doodad_placements(),
+        adt.wmo_placements(),
+        16,
+    );
+
+    // Write all MCNK chunks
+    chunk_positions.mcnk_start = writer.stream_position()?;
+    for mcnk in &mcnk_list {
+        let mcnk_start = writer.stream_position()?;
+        write_mcnk_chunk(writer, mcnk)?;
+        let mcnk_end = writer.stream_position()?;
+        let mcnk_size = (mcnk_end - mcnk_start - 8) as u32;
+        chunk_positions.mcnk_entries.push((mcnk_start, mcnk_size));
     }
 
     // PASS 2: Update offset tables
@@ -253,137 +256,158 @@ pub fn serialize_to_writer<W: Write + Seek>(adt: &BuiltAdt, writer: &mut W) -> R
 /// # Errors
 ///
 /// Returns error if I/O or serialization fails.
-fn write_minimal_mcnk_chunk<W: Write + Seek>(
-    writer: &mut W,
-    x: u32,
-    y: u32,
-    version: crate::AdtVersion,
-) -> Result<()> {
-    // Calculate world position for this tile
-    // Each tile is 33.33333 yards, ADT origin is at (0, 0)
-    let tile_size = 533.33 / 16.0;
+/// Create a minimal MCNK chunk for the given grid position.
+fn create_minimal_mcnk_at(x: u32, y: u32, version: crate::AdtVersion) -> McnkChunk {
+    use crate::chunks::mcnk::{
+        MclyChunk, MclyLayer, McnkFlags, McnkHeader, McnrChunk, McvtChunk,
+    };
+
+    let tile_size = 533.33333_f32 / 16.0;
     let pos_x = x as f32 * tile_size;
-    let pos_y = y as f32 * tile_size;
-    let pos_z = 0.0; // Flat terrain at sea level
+    let pos_z = y as f32 * tile_size;
 
-    // Track sub-chunk positions (relative to MCNK start, including 8-byte header)
-    let mcnk_start = writer.stream_position()?;
-
-    // Reserve space for MCNK header (8-byte chunk header + 136-byte MCNK header)
-    let header_start = writer.stream_position()?;
-    let placeholder = vec![0u8; 8 + 136]; // Total 144 bytes
-    writer.write_all(&placeholder)?;
-
-    // Write MCVT sub-chunk (vertex heights)
-    let mcvt_offset = (writer.stream_position()? - mcnk_start) as u32;
-    let mcvt = McvtChunk {
-        heights: vec![0.0; 145], // 9x9 outer + 8x8 inner vertices, all at height 0
-    };
-    // Write manually due to Vec serialization issues
-    writer.write_all(&ChunkId::MCVT.0)?;
-    let data_size = (mcvt.heights.len() * 4) as u32;
-    writer.write_all(&data_size.to_le_bytes())?;
-    for height in &mcvt.heights {
-        writer.write_all(&height.to_le_bytes())?;
-    }
-
-    // Write MCNR sub-chunk (vertex normals)
-    let mcnr_offset = (writer.stream_position()? - mcnk_start) as u32;
-    let mcnr = McnrChunk::default(); // All normals pointing up
-    // Write manually due to Vec serialization issues
-    writer.write_all(&ChunkId::MCNR.0)?;
-    let data_size = (mcnr.normals.len() * 3 + 13) as u32; // 3 bytes per normal + 13 padding
-    writer.write_all(&data_size.to_le_bytes())?;
-    for normal in &mcnr.normals {
-        writer.write_all(&[normal.x as u8, normal.z as u8, normal.y as u8])?;
-    }
-    writer.write_all(&[0u8; 13])?; // Padding
-
-    // Write MCLY sub-chunk (texture layers)
-    let mcly_offset = (writer.stream_position()? - mcnk_start) as u32;
-    let mcly = MclyChunk {
-        layers: vec![MclyLayer {
-            texture_id: 0,             // Reference to first texture in MTEX
-            flags: Default::default(), // No special flags
-            offset_in_mcal: 0,         // No alpha map
-            effect_id: 0,              // No effect
-        }],
-    };
-    write_chunk(writer, ChunkId::MCLY, &mcly)?;
-
-    // Write MCCV sub-chunk (vertex colors) for VanillaLate+ to enable proper version detection
-    let mccv_offset = if matches!(
+    let has_mccv = matches!(
         version,
         crate::AdtVersion::VanillaLate
             | crate::AdtVersion::TBC
             | crate::AdtVersion::WotLK
             | crate::AdtVersion::Cataclysm
             | crate::AdtVersion::MoP
-    ) {
-        let offset = (writer.stream_position()? - mcnk_start) as u32;
-        let mccv = MccvChunk::default(); // Neutral colors (127, 127, 127, 127)
-        // Write manually due to Vec serialization issues
-        writer.write_all(&ChunkId::MCCV.0)?;
-        let data_size = (mccv.colors.len() * 4) as u32; // 4 bytes per BGRA color
-        writer.write_all(&data_size.to_le_bytes())?;
-        for color in &mccv.colors {
-            writer.write_all(&[color.b, color.g, color.r, color.a])?;
+    );
+
+    McnkChunk {
+        header: McnkHeader {
+            flags: McnkFlags { value: if has_mccv { 0x40 } else { 0 } },
+            index_x: x,
+            index_y: y,
+            n_layers: 1,
+            n_doodad_refs: 0,
+            multipurpose_field: McnkHeader::multipurpose_from_offsets(0, 0),
+            ofs_layer: 0,
+            ofs_refs: 0,
+            ofs_alpha: 0,
+            size_alpha: 0,
+            ofs_shadow: 0,
+            size_shadow: 0,
+            area_id: 0,
+            n_map_obj_refs: 0,
+            holes_low_res: 0,
+            unknown_but_used: 0,
+            pred_tex: [0; 8],
+            no_effect_doodad: [0; 8],
+            unknown_8bytes: [0; 8],
+            ofs_snd_emitters: 0,
+            n_snd_emitters: 0,
+            ofs_liquid: 0,
+            size_liquid: 0,
+            position: [pos_z, pos_x, 0.0], // File order: [Z, X, Y]
+            ofs_mccv: 0,
+            ofs_mclv: 0,
+            unused: 0,
+            _padding: [0; 8],
+        },
+        heights: Some(McvtChunk {
+            heights: vec![0.0f32; 145],
+        }),
+        normals: Some(McnrChunk::default()),
+        layers: Some(MclyChunk {
+            layers: vec![MclyLayer {
+                texture_id: 0,
+                flags: Default::default(),
+                offset_in_mcal: 0,
+                effect_id: 0,
+            }],
+        }),
+        refs: None,
+        alpha: None,
+        shadow: None,
+        vertex_colors: if has_mccv {
+            Some(Default::default())
+        } else {
+            None
+        },
+        materials: None,
+        doodad_refs: None,
+        wmo_refs: None,
+        vertex_lighting: None,
+        sound_emitters: None,
+        liquid: None,
+        liquid_layers: None,
+        doodad_disable: None,
+        blend_batches: None,
+    }
+}
+
+/// Auto-generate MCRF references for a mutable list of MCNK chunks.
+///
+/// Scans all doodad and WMO placements and adds references for any placement
+/// whose position falls within each chunk's world-space bounds.
+fn generate_mcrf_for_chunks(
+    chunks: &mut [McnkChunk],
+    doodad_placements: &[DoodadPlacement],
+    wmo_placements: &[WmoPlacement],
+    grid_dim: u32,
+) {
+    use crate::chunks::mcnk::McrfChunk;
+
+    let n = chunks.len();
+    if n == 0 {
+        return;
+    }
+
+    let tile_size = 533.33333_f32 / grid_dim as f32;
+
+    for chunk_idx in 0..n {
+        let px = (chunk_idx % grid_dim as usize) as f32;
+        let py = (chunk_idx / grid_dim as usize) as f32;
+
+        let chunk_min_x = px * tile_size;
+        let chunk_min_z = py * tile_size;
+        let chunk_max_x = chunk_min_x + tile_size;
+        let chunk_max_z = chunk_min_z + tile_size;
+
+        let mut doodad_refs: Vec<u32> = Vec::new();
+        let mut wmo_refs: Vec<u32> = Vec::new();
+
+        for (idx, placement) in doodad_placements.iter().enumerate() {
+            if placement.position[0] >= chunk_min_x
+                && placement.position[0] < chunk_max_x
+                && placement.position[2] >= chunk_min_z
+                && placement.position[2] < chunk_max_z
+            {
+                doodad_refs.push(idx as u32);
+            }
         }
-        offset
-    } else {
-        0 // VanillaEarly has no MCCV
-    };
 
-    // Calculate MCNK chunk total size (excluding 8-byte chunk header)
-    let mcnk_end = writer.stream_position()?;
-    let mcnk_size = (mcnk_end - mcnk_start - 8) as u32;
+        for (idx, placement) in wmo_placements.iter().enumerate() {
+            let wmo_min_x = placement.position[0] + placement.extents_min[0];
+            let wmo_min_z = placement.position[2] + placement.extents_min[2];
+            let wmo_max_x = placement.position[0] + placement.extents_max[0];
+            let wmo_max_z = placement.position[2] + placement.extents_max[2];
 
-    // Build MCNK header with calculated offsets
-    let header = McnkHeader {
-        flags: McnkFlags { value: 0 },
-        index_x: x,
-        index_y: y,
-        n_layers: 1, // One texture layer
-        n_doodad_refs: 0,
-        multipurpose_field: McnkHeader::multipurpose_from_offsets(mcvt_offset, mcnr_offset),
-        ofs_layer: mcly_offset,
-        ofs_refs: 0,  // No MCRF
-        ofs_alpha: 0, // No MCAL
-        size_alpha: 0,
-        ofs_shadow: 0, // No MCSH
-        size_shadow: 0,
-        area_id: 0,
-        n_map_obj_refs: 0,
-        holes_low_res: 0,
-        unknown_but_used: 1, // Always 1 per spec
-        pred_tex: [0; 8],
-        no_effect_doodad: [0; 8],
-        unknown_8bytes: [0; 8], // Unknown 8-byte field
-        ofs_snd_emitters: 0,    // No MCSE
-        n_snd_emitters: 0,
-        ofs_liquid: 0, // No MCLQ
-        size_liquid: 0,
-        position: [pos_x, pos_y, pos_z],
-        ofs_mccv: mccv_offset,
-        ofs_mclv: 0, // No MCLV
-        unused: 0,
-        _padding: [0; 8],
-    };
+            if wmo_max_x >= chunk_min_x
+                && wmo_min_x < chunk_max_x
+                && wmo_max_z >= chunk_min_z
+                && wmo_min_z < chunk_max_z
+            {
+                wmo_refs.push(idx as u32);
+            }
+        }
 
-    // Seek back and write the actual header
-    writer.seek(SeekFrom::Start(header_start))?;
+        if !doodad_refs.is_empty() || !wmo_refs.is_empty() {
+            let n_doodad = doodad_refs.len() as u32;
+            let n_wmo = wmo_refs.len() as u32;
+            let mut all_refs = doodad_refs;
+            all_refs.extend(wmo_refs);
 
-    // Write chunk header (magic + size)
-    ChunkId::MCNK.write_le(writer)?;
-    writer.write_all(&mcnk_size.to_le_bytes())?;
-
-    // Write MCNK header data
-    header.write_le(writer)?;
-
-    // Seek to end of chunk
-    writer.seek(SeekFrom::Start(mcnk_end))?;
-
-    Ok(())
+            let chunk = &mut chunks[chunk_idx];
+            chunk.header.n_doodad_refs = n_doodad;
+            chunk.header.n_map_obj_refs = n_wmo;
+            chunk.refs = Some(McrfChunk {
+                references: all_refs,
+            });
+        }
+    }
 }
 
 /// Write a user-provided MCNK chunk with all its subchunks.
@@ -490,8 +514,26 @@ fn write_mcnk_chunk<W: Write + Seek>(writer: &mut W, mcnk: &McnkChunk) -> Result
         header.size_shadow = (shadow_end - shadow_start - 8) as u32;
     }
 
-    // Write MCLQ (liquid) if present
-    if let Some(mclq) = &mcnk.liquid {
+    // Write MCLQ (liquid) — multi-layer takes precedence, then single-layer fallback
+    if let Some(layers) = &mcnk.liquid_layers {
+        if !layers.is_empty() {
+            header.ofs_liquid = (writer.stream_position()? - mcnk_start) as u32;
+            let liquid_start = writer.stream_position()?;
+
+            // MCLQ chunk header (size = 0 as per convention)
+            writer.write_all(&ChunkId::MCLQ.0)?;
+            writer.write_all(&0u32.to_le_bytes())?;
+
+            for layer in layers {
+                layer.write_le(writer).map_err(|e| {
+                    AdtError::BinrwError(format!("Failed to serialize MCLQ layer: {e}"))
+                })?;
+            }
+
+            let liquid_end = writer.stream_position()?;
+            header.size_liquid = (liquid_end - liquid_start) as u32;
+        }
+    } else if let Some(mclq) = &mcnk.liquid {
         header.ofs_liquid = (writer.stream_position()? - mcnk_start) as u32;
         let liquid_start = writer.stream_position()?;
         write_chunk(writer, ChunkId::MCLQ, mclq)?;
@@ -1019,6 +1061,7 @@ mod tests {
             vertex_lighting: None,
             sound_emitters: None,
             liquid: None,
+            liquid_layers: None,
             doodad_disable: None,
             blend_batches: None,
         }

@@ -1065,3 +1065,73 @@ fn test_mh2o_without_vertex_data() {
         "Should have no exists bitmap"
     );
 }
+
+#[test]
+fn test_mcrf_auto_generation_with_placements() {
+    // Build ADT with doodad and WMO placements.
+    // Chunk 0 bounds: (0, 0) -> (33.33, 33.33) in ADT-relative coords.
+    // The doodad at (10, 10) should be captured; the WMO at (500, 500) should not.
+    let built_adt = AdtBuilder::new()
+        .with_version(AdtVersion::WotLK)
+        .add_texture("terrain/grass.blp")
+        .add_model("doodad/tree.m2")
+        .add_doodad_placement(DoodadPlacement {
+            name_id: 0,
+            unique_id: 1,
+            position: [10.0, 0.0, 10.0], // Inside chunk 0 bounds
+            rotation: [0.0, 0.0, 0.0],
+            scale: 1024,
+            flags: 0,
+        })
+        .add_wmo("buildings/house.wmo")
+        .add_wmo_placement(WmoPlacement {
+            name_id: 0,
+            unique_id: 2,
+            position: [500.0, 0.0, 500.0], // Far outside chunk 0
+            rotation: [0.0, 0.0, 0.0],
+            extents_min: [-5.0, 0.0, -5.0],
+            extents_max: [5.0, 10.0, 5.0],
+            flags: 0,
+            doodad_set: 0,
+            name_set: 0,
+            scale: 1024,
+        })
+        .build()
+        .expect("Failed to build ADT");
+
+    // Serialize and parse back (MCRF auto-generation happens in build())
+    let bytes = built_adt.to_bytes().expect("Serialization should work");
+    let mut cursor = Cursor::new(bytes);
+    let parsed = parse_adt(&mut cursor).expect("Parse should work");
+    let root = extract_root(parsed);
+
+    // Chunk 0 should have MCRF with doodad ref (0) but not WMO ref
+    let chunk = &root.mcnk_chunks[0];
+    let refs = chunk
+        .refs
+        .as_ref()
+        .expect("MCRF should be auto-generated for chunk 0");
+    assert_eq!(
+        refs.references.len(),
+        1,
+        "Should have 1 doodad ref, 0 WMO refs"
+    );
+    assert_eq!(refs.references[0], 0); // Doodad index 0
+    assert_eq!(chunk.header.n_doodad_refs, 1);
+    assert_eq!(chunk.header.n_map_obj_refs, 0);
+
+    // Chunks far from the placement should have no refs
+    // Chunk at (15, 15) is index 255, its bounds are (500+, 500+) so
+    // the WMO at (500, 500) with extents [-5..5, -5..5] falls inside it
+    let far_chunk = &root.mcnk_chunks[255];
+    if let Some(far_refs) = &far_chunk.refs {
+        // The WMO placement at (500, 500) may be caught by chunk 255
+        // (bounds ~500..533.33) since extents extend ±5 from position
+        assert!(
+            far_refs.references.len() <= 1,
+            "Far chunk should have at most 1 ref"
+        );
+    }
+    // The key test: chunk 0 should have exactly 1 doodad ref
+    assert_eq!(refs.references, vec![0u32]);
+}

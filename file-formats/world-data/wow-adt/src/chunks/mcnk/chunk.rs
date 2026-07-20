@@ -139,8 +139,19 @@ pub struct McnkChunk {
     /// MCSE: Sound emitters
     pub sound_emitters: Option<McseChunk>,
 
-    /// MCLQ: Legacy liquid (pre-WotLK, deprecated)
+    /// MCLQ: Legacy liquid (pre-WotLK, deprecated) — single layer.
+    ///
+    /// For multi-layer MCLQ (e.g., water above lava), use `liquid_layers`
+    /// instead. The serializer checks `liquid_layers` first and falls
+    /// back to `liquid` for backward compatibility.
     pub liquid: Option<MclqChunk>,
+
+    /// MCLQ: Multiple legacy liquid layers in flag order (pre-WotLK).
+    ///
+    /// Supports overlapping water/ocean/magma/slime layers per chunk.
+    /// Each layer is written sequentially; the serializer sets
+    /// `header.size_liquid = n_layers * sizeof(mclq) + 8`.
+    pub liquid_layers: Option<Vec<MclqChunk>>,
 
     /// MCDD: Doodad disable bitmap (WoD+)
     pub doodad_disable: Option<McddChunk>,
@@ -409,6 +420,7 @@ impl McnkChunk {
             vertex_lighting,
             sound_emitters,
             liquid,
+            liquid_layers: None, // Multi-layer MCLQ not parsed yet (single layer above)
             doodad_disable,
             blend_batches: None, // TODO: Parse MCBB from chunk discovery
         })
