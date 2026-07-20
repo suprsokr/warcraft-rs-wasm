@@ -2719,7 +2719,7 @@ checksum = "1ebf944e87a7c253233ad6766e082e3cd714b5d03812acc24c318f549614536e"
 
 [[package]]
 name = "wow-adt"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "binrw",
  "criterion",
@@ -2736,7 +2736,7 @@ dependencies = [
 
 [[package]]
 name = "wow-adt-web"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "js-sys",
  "serde",
@@ -2747,7 +2747,7 @@ dependencies = [
 
 [[package]]
 name = "wow-blp"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "bytes",
  "color_quant",
@@ -2764,7 +2764,7 @@ dependencies = [
 
 [[package]]
 name = "wow-blp-web"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "image",
  "js-sys",
@@ -2777,7 +2777,7 @@ dependencies = [
 
 [[package]]
 name = "wow-cdbc"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "binrw",
  "clap",
@@ -2798,7 +2798,7 @@ dependencies = [
 
 [[package]]
 name = "wow-cdbc-web"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "js-sys",
  "serde",
@@ -2811,7 +2811,7 @@ dependencies = [
 
 [[package]]
 name = "wow-m2"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "anyhow",
  "bitflags 2.13.1",
@@ -2833,7 +2833,7 @@ dependencies = [
 
 [[package]]
 name = "wow-m2-web"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "js-sys",
  "serde",
@@ -2844,7 +2844,7 @@ dependencies = [
 
 [[package]]
 name = "wow-mpq"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "adler2",
  "assert_cmd",
@@ -2882,7 +2882,7 @@ dependencies = [
 
 [[package]]
 name = "wow-mpq-web"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "console_error_panic_hook",
  "js-sys",
@@ -2896,7 +2896,7 @@ dependencies = [
 
 [[package]]
 name = "wow-wdl"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "criterion",
  "memchr",
@@ -2906,7 +2906,7 @@ dependencies = [
 
 [[package]]
 name = "wow-wdl-web"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "js-sys",
  "serde",
@@ -2917,7 +2917,7 @@ dependencies = [
 
 [[package]]
 name = "wow-wdt"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "anyhow",
  "bitflags 2.13.1",
@@ -2931,7 +2931,7 @@ dependencies = [
 
 [[package]]
 name = "wow-wdt-web"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "js-sys",
  "serde",
@@ -2942,7 +2942,7 @@ dependencies = [
 
 [[package]]
 name = "wow-web-common"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "js-sys",
  "serde",
@@ -2952,7 +2952,7 @@ dependencies = [
 
 [[package]]
 name = "wow-wmo"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "binrw",
  "bitflags 2.13.1",
@@ -2967,7 +2967,7 @@ dependencies = [
 
 [[package]]
 name = "wow-wmo-web"
-version = "0.6.7"
+version = "0.6.8"
 dependencies = [
  "js-sys",
  "serde",

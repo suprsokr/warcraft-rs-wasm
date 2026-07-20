@@ -1,7 +1,7 @@
 {
   "name": "wow-m2-web",
   "description": "Read World of Warcraft M2 model files in the browser and Node.js (WebAssembly bindings for wow-m2)",
-  "version": "0.6.6",
+  "version": "0.7.0",
   "license": "MIT OR Apache-2.0",
   "repository": {
     "type": "git",

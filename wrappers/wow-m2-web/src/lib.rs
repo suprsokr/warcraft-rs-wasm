@@ -20,8 +20,11 @@ use std::io::Cursor;
 use serde::Serialize;
 use wasm_bindgen::prelude::*;
 use wow_m2::anim::AnimParser;
+use wow_m2::animation::{
+    AnimationManager, AnimationManagerBuilder, BoneTransformComputer, Mat4, Vec3,
+};
 use wow_m2::skin::SkinFile;
-use wow_m2::{M2Format, parse_m2};
+use wow_m2::{M2Format, M2Model, parse_m2};
 use wow_web_common::{set_property, to_js, to_uint8_array};
 
 #[derive(Serialize)]
@@ -67,6 +70,43 @@ struct SkinSummary {
     triangle_count: usize,
     submesh_count: usize,
     batch_count: usize,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AnimationInfo {
+    index: usize,
+    id: u16,
+    sub_id: u16,
+    /// Duration in milliseconds.
+    duration: u32,
+    flags: u32,
+}
+
+/// One render batch resolved for drawing (see [`M2Renderer::batches`]).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BatchInfo {
+    /// Index of the submesh (geoset) this batch draws.
+    submesh: usize,
+    /// Geoset id of the submesh (used for LOD/skin grouping).
+    submesh_id: u16,
+    /// Resolved texture index into the model's `textures` list (or -1).
+    texture_index: i32,
+    /// Raw `texture_combo_index` from the batch.
+    texture_combo_index: u16,
+    /// Blend mode (0 opaque, 1 alpha-key, 2 alpha, 4 add, 5 mod, 6 mod2x, ...).
+    blend_mode: u16,
+    /// True if backface culling should be disabled.
+    two_sided: bool,
+    /// True if the batch is unlit (draw at full brightness).
+    unlit: bool,
+    /// True if the depth buffer should not be written (transparent passes).
+    no_depth_write: bool,
+    /// Start offset (in indices) into the shared index buffer.
+    index_start: u32,
+    /// Number of indices for this batch (3 per triangle).
+    index_count: u32,
 }
 
 #[derive(Serialize)]
@@ -212,6 +252,38 @@ impl M2 {
         Ok(obj.into())
     }
 
+    /// List of animation sequences for a UI picker.
+    ///
+    /// Returns an array of `{ index, id, subId, duration, flags }`. The
+    /// `id` maps to WoW's animation slot (0 = Stand, 4 = Walk, ...); the
+    /// JS side turns it into a human-readable label.
+    #[wasm_bindgen(js_name = animations)]
+    pub fn animations(&self) -> Result<JsValue, JsError> {
+        let model = self.format.model();
+        let list: Vec<AnimationInfo> = model
+            .animations
+            .iter()
+            .enumerate()
+            .map(|(index, seq)| AnimationInfo {
+                index,
+                id: seq.animation_id,
+                sub_id: seq.sub_animation_id,
+                duration: seq
+                    .end_timestamp
+                    .map(|end| end.saturating_sub(seq.start_timestamp))
+                    .unwrap_or(seq.start_timestamp),
+                flags: seq.flags,
+            })
+            .collect();
+        to_js(&list)
+    }
+
+    /// The texture lookup table (`texture_combo_index` -> texture index).
+    #[wasm_bindgen(js_name = textureLookupTable)]
+    pub fn texture_lookup_table(&self) -> js_sys::Uint16Array {
+        js_sys::Uint16Array::from(self.format.model().raw_data.texture_lookup_table.as_slice())
+    }
+
     /// Serialize the model back to M2 bytes.
     #[wasm_bindgen(js_name = export)]
     pub fn export(&self) -> Result<js_sys::Uint8Array, JsError> {
@@ -327,5 +399,394 @@ impl Anim {
             .write(&mut out)
             .map_err(|e| JsError::new(&format!("failed to write anim: {e}")))?;
         Ok(to_uint8_array(&out.into_inner()))
+    }
+}
+
+/// A ready-to-draw M2 model with animation playback and CPU skinning.
+///
+/// This bundles the parsed model, its render skin (external `.skin` for
+/// WotLK+, or the embedded skin for older models), and an animation
+/// manager. It produces GPU-friendly buffers:
+///
+/// - a shared, de-duplicated **index buffer** whose ranges line up with
+///   the batches returned by [`batches`](M2Renderer::batches), and
+/// - per-frame CPU-skinned **vertex positions and normals** in OpenGL
+///   `Y-up` space (WoW is `Z-up`, so `(x, y, z) -> (x, z, -y)`).
+///
+/// ```js
+/// import init, { M2Renderer } from "wow-m2-web";
+/// await init();
+/// const r = new M2Renderer(m2Bytes, skinBytes); // skinBytes may be null
+/// const batches = r.batches();
+/// const indices = r.indices();
+/// r.setAnimation(0);
+/// // each frame:
+/// r.update(dtMs);
+/// const positions = r.skinnedVertices();
+/// const normals = r.skinnedNormals();
+/// ```
+#[wasm_bindgen(js_name = M2Renderer)]
+pub struct M2Renderer {
+    model: M2Model,
+    manager: AnimationManager,
+    computer: BoneTransformComputer,
+    /// Shared element buffer; batch ranges index into this.
+    indices: Vec<u32>,
+    /// One [`BatchInfo`] per drawn batch (parallel to index ranges).
+    batches: Vec<BatchInfo>,
+    /// Cached base (bind-pose) positions in GL space.
+    base_positions: Vec<[f32; 3]>,
+    /// Cached base normals in GL space.
+    base_normals: Vec<[f32; 3]>,
+    /// Cached per-vertex bone indices/weights.
+    bone_indices: Vec<[u8; 4]>,
+    bone_weights: Vec<[u8; 4]>,
+    /// Scratch skinned output buffers (flat x,y,z interleaved).
+    skinned_positions: Vec<f32>,
+    skinned_normals: Vec<f32>,
+}
+
+/// Convert a WoW `Z-up` position/direction to OpenGL `Y-up`.
+#[inline]
+fn to_gl(x: f32, y: f32, z: f32) -> [f32; 3] {
+    [x, z, -y]
+}
+
+#[wasm_bindgen(js_class = M2Renderer)]
+impl M2Renderer {
+    /// Create a renderer from M2 bytes and optional external `.skin` bytes.
+    ///
+    /// If `skin_data` is `null`/empty the model's embedded skin is used
+    /// (pre-WotLK models). Textures are resolved by the caller and bound
+    /// per batch using [`batches`](M2Renderer::batches).
+    #[wasm_bindgen(constructor)]
+    pub fn new(m2_data: &[u8], skin_data: Option<Vec<u8>>) -> Result<M2Renderer, JsError> {
+        let format = parse_m2(&mut Cursor::new(m2_data))
+            .map_err(|e| JsError::new(&format!("failed to parse M2: {e}")))?;
+        let model = format.model().clone();
+
+        // Resolve the render skin: prefer an external .skin, fall back to
+        // the embedded skin data for older (pre-WotLK) models, which store
+        // their skin profiles inside the .m2 itself.
+        let skin = match skin_data {
+            Some(bytes) if !bytes.is_empty() => SkinFile::parse(&mut Cursor::new(&bytes))
+                .map_err(|e| JsError::new(&format!("failed to parse skin: {e}")))?,
+            _ => model.parse_embedded_skin(m2_data, 0).map_err(|e| {
+                JsError::new(&format!(
+                    "no external skin provided and embedded skin parse failed: {e}"
+                ))
+            })?,
+        };
+
+        // Build the animation manager (resolves bone tracks from raw bytes).
+        let manager = AnimationManagerBuilder::from_model(&model, m2_data)
+            .unwrap_or_else(|_| AnimationManager::empty());
+
+        // Build the bone transform computer.
+        let pivots: Vec<Vec3> = model
+            .bones
+            .iter()
+            .map(|b| Vec3::new(b.pivot.x, b.pivot.y, b.pivot.z))
+            .collect();
+        let parents: Vec<i16> = model.bones.iter().map(|b| b.parent_bone).collect();
+        let flags: Vec<u32> = model.bones.iter().map(|b| b.flags.bits()).collect();
+        let computer = if pivots.is_empty() {
+            BoneTransformComputer::empty()
+        } else {
+            BoneTransformComputer::new(&pivots, &parents, &flags)
+        };
+
+        // Cache base geometry in GL space plus per-vertex skinning data.
+        let base_positions: Vec<[f32; 3]> = model
+            .vertices
+            .iter()
+            .map(|v| to_gl(v.position.x, v.position.y, v.position.z))
+            .collect();
+        let base_normals: Vec<[f32; 3]> = model
+            .vertices
+            .iter()
+            .map(|v| to_gl(v.normal.x, v.normal.y, v.normal.z))
+            .collect();
+        let bone_indices: Vec<[u8; 4]> = model.vertices.iter().map(|v| v.bone_indices).collect();
+        let bone_weights: Vec<[u8; 4]> = model.vertices.iter().map(|v| v.bone_weights).collect();
+
+        // Build the shared index buffer and batch ranges.
+        let triangles = skin.triangles();
+        let submeshes = skin.submeshes();
+        let tex_lookup = &model.raw_data.texture_lookup_table;
+
+        let mut indices: Vec<u32> = Vec::new();
+        let mut batches: Vec<BatchInfo> = Vec::new();
+
+        for batch in skin.batches() {
+            let sm_idx = batch.skin_section_index as usize;
+            let Some(sm) = submeshes.get(sm_idx) else {
+                continue;
+            };
+
+            let tri_start = sm.triangle_start as usize;
+            let tri_count = sm.triangle_count as usize;
+            let end = (tri_start + tri_count).min(triangles.len());
+            if tri_start >= end {
+                continue;
+            }
+
+            let index_start = indices.len() as u32;
+            for &t in &triangles[tri_start..end] {
+                indices.push(t as u32);
+            }
+            let index_count = indices.len() as u32 - index_start;
+
+            // Resolve texture: texture_combo_index -> texture_lookup_table -> textures.
+            let texture_index = tex_lookup
+                .get(batch.texture_combo_index as usize)
+                .map(|&i| i as i32)
+                .unwrap_or(-1);
+
+            let material = model.materials.get(batch.material_index as usize);
+            let (two_sided, unlit, no_depth_write, blend_mode) = match material {
+                Some(m) => (
+                    m.flags
+                        .contains(wow_m2::chunks::material::M2RenderFlags::NO_BACKFACE_CULLING),
+                    m.flags
+                        .contains(wow_m2::chunks::material::M2RenderFlags::UNLIT),
+                    !m.flags
+                        .contains(wow_m2::chunks::material::M2RenderFlags::DEPTH_WRITE),
+                    m.blend_mode.bits(),
+                ),
+                None => (false, false, false, 0),
+            };
+
+            batches.push(BatchInfo {
+                submesh: sm_idx,
+                submesh_id: sm.id,
+                texture_index,
+                texture_combo_index: batch.texture_combo_index,
+                blend_mode,
+                two_sided,
+                unlit,
+                no_depth_write,
+                index_start,
+                index_count,
+            });
+        }
+
+        let vert_count = base_positions.len();
+        Ok(M2Renderer {
+            model,
+            manager,
+            computer,
+            indices,
+            batches,
+            base_positions,
+            base_normals,
+            bone_indices,
+            bone_weights,
+            skinned_positions: vec![0.0; vert_count * 3],
+            skinned_normals: vec![0.0; vert_count * 3],
+        })
+    }
+
+    /// Number of vertices.
+    #[wasm_bindgen(js_name = vertexCount)]
+    pub fn vertex_count(&self) -> usize {
+        self.base_positions.len()
+    }
+
+    /// The shared triangle index buffer (`Uint32Array`). Batch ranges
+    /// returned by [`batches`](M2Renderer::batches) index into this.
+    #[wasm_bindgen(js_name = indices)]
+    pub fn indices(&self) -> js_sys::Uint32Array {
+        js_sys::Uint32Array::from(self.indices.as_slice())
+    }
+
+    /// Per-batch draw information (texture, blend, cull, index range).
+    #[wasm_bindgen(js_name = batches)]
+    pub fn batches(&self) -> Result<JsValue, JsError> {
+        to_js(&self.batches)
+    }
+
+    /// Texture metadata (`textureType`, `flags`, `filename`) — the same
+    /// list referenced by `BatchInfo.textureIndex`.
+    #[wasm_bindgen(js_name = textures)]
+    pub fn textures(&self) -> Result<JsValue, JsError> {
+        let list: Vec<TextureInfo> = self
+            .model
+            .textures
+            .iter()
+            .map(|t| TextureInfo {
+                texture_type: t.texture_type as u32,
+                flags: t.flags.bits(),
+                filename: t.filename.string.to_string_lossy(),
+            })
+            .collect();
+        to_js(&list)
+    }
+
+    /// Animation sequences for a UI picker (`{index,id,subId,duration,flags}`).
+    #[wasm_bindgen(js_name = animations)]
+    pub fn animations(&self) -> Result<JsValue, JsError> {
+        let list: Vec<AnimationInfo> = self
+            .model
+            .animations
+            .iter()
+            .enumerate()
+            .map(|(index, seq)| AnimationInfo {
+                index,
+                id: seq.animation_id,
+                sub_id: seq.sub_animation_id,
+                duration: seq
+                    .end_timestamp
+                    .map(|end| end.saturating_sub(seq.start_timestamp))
+                    .unwrap_or(seq.start_timestamp),
+                flags: seq.flags,
+            })
+            .collect();
+        to_js(&list)
+    }
+
+    /// Axis-aligned bounding box in GL space: `[minX,minY,minZ,maxX,maxY,maxZ]`.
+    #[wasm_bindgen(js_name = boundingBox)]
+    pub fn bounding_box(&self) -> js_sys::Float32Array {
+        let mut min = [f32::INFINITY; 3];
+        let mut max = [f32::NEG_INFINITY; 3];
+        for p in &self.base_positions {
+            for i in 0..3 {
+                min[i] = min[i].min(p[i]);
+                max[i] = max[i].max(p[i]);
+            }
+        }
+        if !self.base_positions.is_empty() {
+            js_sys::Float32Array::from([min[0], min[1], min[2], max[0], max[1], max[2]].as_slice())
+        } else {
+            js_sys::Float32Array::from([-1.0f32, -1.0, -1.0, 1.0, 1.0, 1.0].as_slice())
+        }
+    }
+
+    /// Set the current animation by sequence index (into `animations()`).
+    #[wasm_bindgen(js_name = setAnimation)]
+    pub fn set_animation(&mut self, index: usize) {
+        self.manager.set_animation_index(index);
+    }
+
+    /// Advance the animation by `delta_ms` and recompute bone transforms.
+    #[wasm_bindgen(js_name = update)]
+    pub fn update(&mut self, delta_ms: f64) {
+        if self.manager.bone_count() == 0 {
+            return;
+        }
+        self.manager.update(delta_ms);
+
+        let bone_count = self.computer.bone_count();
+        let mut translations = Vec::with_capacity(bone_count);
+        let mut rotations = Vec::with_capacity(bone_count);
+        let mut scales = Vec::with_capacity(bone_count);
+        for i in 0..bone_count {
+            translations.push(self.manager.get_bone_translation(i));
+            rotations.push(self.manager.get_bone_rotation(i));
+            scales.push(self.manager.get_bone_scale(i));
+        }
+        self.computer.update(&translations, &rotations, &scales);
+        self.skin_now();
+    }
+
+    /// CPU-skinned vertex positions for the current frame (`Float32Array`,
+    /// interleaved x,y,z). Call [`update`](M2Renderer::update) first.
+    #[wasm_bindgen(js_name = skinnedVertices)]
+    pub fn skinned_vertices(&self) -> js_sys::Float32Array {
+        js_sys::Float32Array::from(self.skinned_positions.as_slice())
+    }
+
+    /// CPU-skinned vertex normals for the current frame (`Float32Array`).
+    #[wasm_bindgen(js_name = skinnedNormals)]
+    pub fn skinned_normals(&self) -> js_sys::Float32Array {
+        js_sys::Float32Array::from(self.skinned_normals.as_slice())
+    }
+
+    /// Primary texture coordinates (`Float32Array`, interleaved u,v).
+    /// These are static (texture animations are not yet applied).
+    #[wasm_bindgen(js_name = texCoords)]
+    pub fn tex_coords(&self) -> js_sys::Float32Array {
+        let flat: Vec<f32> = self
+            .model
+            .vertices
+            .iter()
+            .flat_map(|v| [v.tex_coords.x, v.tex_coords.y])
+            .collect();
+        js_sys::Float32Array::from(flat.as_slice())
+    }
+
+    /// Compute skinned positions/normals into the scratch buffers.
+    fn skin_now(&mut self) {
+        let bones = self.computer.bones();
+        let has_bones = !bones.is_empty();
+
+        for (vi, ((pos, nrm), (bidx, bwt))) in self
+            .base_positions
+            .iter()
+            .zip(self.base_normals.iter())
+            .zip(self.bone_indices.iter().zip(self.bone_weights.iter()))
+            .enumerate()
+        {
+            let out_p = vi * 3;
+
+            if !has_bones {
+                self.skinned_positions[out_p] = pos[0];
+                self.skinned_positions[out_p + 1] = pos[1];
+                self.skinned_positions[out_p + 2] = pos[2];
+                self.skinned_normals[out_p] = nrm[0];
+                self.skinned_normals[out_p + 1] = nrm[1];
+                self.skinned_normals[out_p + 2] = nrm[2];
+                continue;
+            }
+
+            let base_pos = Vec3::new(pos[0], pos[1], pos[2]);
+            let base_nrm = Vec3::new(nrm[0], nrm[1], nrm[2]);
+            let mut acc_p = Vec3::ZERO;
+            let mut acc_n = Vec3::ZERO;
+            let mut total_w = 0.0f32;
+
+            for k in 0..4 {
+                let w = bwt[k] as f32 / 255.0;
+                if w <= 0.0 {
+                    continue;
+                }
+                let bone = bidx[k] as usize;
+                let Some(cb) = bones.get(bone) else {
+                    continue;
+                };
+                let m: &Mat4 = &cb.post_billboard_transform;
+                let tp = m.transform_point(base_pos);
+                let tn = m.transform_normal(base_nrm);
+                acc_p.x += tp.x * w;
+                acc_p.y += tp.y * w;
+                acc_p.z += tp.z * w;
+                acc_n.x += tn.x * w;
+                acc_n.y += tn.y * w;
+                acc_n.z += tn.z * w;
+                total_w += w;
+            }
+
+            if total_w <= 0.0 {
+                // Unweighted vertex: leave in bind pose.
+                acc_p = base_pos;
+                acc_n = base_nrm;
+            }
+
+            self.skinned_positions[out_p] = acc_p.x;
+            self.skinned_positions[out_p + 1] = acc_p.y;
+            self.skinned_positions[out_p + 2] = acc_p.z;
+
+            let len = (acc_n.x * acc_n.x + acc_n.y * acc_n.y + acc_n.z * acc_n.z).sqrt();
+            if len > 1e-6 {
+                self.skinned_normals[out_p] = acc_n.x / len;
+                self.skinned_normals[out_p + 1] = acc_n.y / len;
+                self.skinned_normals[out_p + 2] = acc_n.z / len;
+            } else {
+                self.skinned_normals[out_p] = base_nrm.x;
+                self.skinned_normals[out_p + 1] = base_nrm.y;
+                self.skinned_normals[out_p + 2] = base_nrm.z;
+            }
+        }
     }
 }

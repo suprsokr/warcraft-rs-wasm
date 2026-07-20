@@ -72,6 +72,49 @@ anim.summary();  // { format, sectionCount }
 const animBytes = anim.export();
 ```
 
+## Rendering & animation (`M2Renderer`)
+
+For previewing a model in WebGL, `M2Renderer` bundles the model, its
+render skin (external `.skin`, or the embedded skin for pre-WotLK
+models), and an animation manager. It performs **CPU vertex skinning**
+so the WebGL shader stays trivial, and returns coordinates already in
+OpenGL `Y-up` space (WoW is `Z-up`).
+
+```js
+import init, { M2Renderer } from "wow-m2-web";
+await init();
+
+// skinBytes may be null for pre-WotLK models with embedded skins.
+const r = new M2Renderer(m2Bytes, skinBytes);
+
+r.animations();   // [{ index, id, subId, duration, flags }, ...]
+r.textures();     // [{ textureType, flags, filename }, ...]
+r.indices();      // Uint32Array — shared element buffer
+r.texCoords();    // Float32Array (u,v) — static UVs
+r.boundingBox();  // [minX,minY,minZ, maxX,maxY,maxZ] for camera framing
+
+// One draw call per batch; ranges index into r.indices().
+for (const b of r.batches()) {
+  // b: { submesh, submeshId, textureIndex, textureComboIndex,
+  //      blendMode, twoSided, unlit, noDepthWrite,
+  //      indexStart, indexCount }
+  bindTexture(r.textures()[b.textureIndex]);
+  drawElements(b.indexStart, b.indexCount);
+}
+
+// Animation loop:
+r.setAnimation(0);
+function frame(dtMs) {
+  r.update(dtMs);
+  uploadPositions(r.skinnedVertices()); // Float32Array (x,y,z)
+  uploadNormals(r.skinnedNormals());    // Float32Array (x,y,z)
+}
+```
+
+The caller resolves texture files itself (e.g. from a `wow-mpq-web`
+archive + `wow-blp-web` decode) and binds them per batch using
+`BatchInfo.textureIndex`.
+
 ## Notes
 
 - The companion-file resolver is intentionally left to JS — this gives
@@ -79,3 +122,5 @@ const animBytes = anim.export();
 - `M2File.export()` re-serializes the main model only. Skin and anim
   files are separate and must be exported via `M2Skin.export()` /
   `M2Anim.export()` if you mutated them.
+- `M2Renderer` currently applies bone (skeletal) animation. Texture
+  (UV) animations and particle/ribbon emitters are not yet applied.
