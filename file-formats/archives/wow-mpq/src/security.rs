@@ -18,7 +18,7 @@ use crate::{Error, Result};
 use std::path::{Component, Path};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 /// Security limits for various MPQ structures
 #[derive(Debug, Clone)]

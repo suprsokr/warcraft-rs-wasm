@@ -1179,7 +1179,7 @@ impl ArchiveBuilder {
         // File time (use current time for now)
         if matches!(self.attributes_option, AttributesOption::GenerateFull) {
             // Convert current time to Windows FILETIME (100-nanosecond intervals since 1601-01-01)
-            use std::time::{SystemTime, UNIX_EPOCH};
+            use web_time::{SystemTime, UNIX_EPOCH};
             let duration = SystemTime::now().duration_since(UNIX_EPOCH).unwrap();
             let unix_seconds = duration.as_secs();
             // Windows epoch is 11644473600 seconds before Unix epoch

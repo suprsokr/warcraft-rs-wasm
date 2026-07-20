@@ -4,6 +4,7 @@
 //! including hex dumps, table formatters, and structure visualizers.
 
 use crate::tables::{BlockEntry, HashEntry};
+use web_time::Instant;
 
 /// Hex dump configuration options
 #[derive(Debug, Clone)]
@@ -204,7 +205,7 @@ pub struct ProgressTracker {
     name: String,
     total: usize,
     current: usize,
-    start_time: std::time::Instant,
+    start_time: Instant,
 }
 
 impl ProgressTracker {
@@ -214,7 +215,7 @@ impl ProgressTracker {
             name: name.to_string(),
             total,
             current: 0,
-            start_time: std::time::Instant::now(),
+            start_time: Instant::now(),
         }
     }
 
@@ -293,7 +294,7 @@ pub fn format_flags(value: u32, flag_names: &[(u32, &str)]) -> String {
 #[derive(Debug)]
 pub struct DebugContext {
     indent: usize,
-    start_time: std::time::Instant,
+    start_time: Instant,
 }
 
 impl Default for DebugContext {
@@ -307,7 +308,7 @@ impl DebugContext {
     pub fn new() -> Self {
         Self {
             indent: 0,
-            start_time: std::time::Instant::now(),
+            start_time: Instant::now(),
         }
     }
 
@@ -727,7 +728,7 @@ pub fn visualize_archive_structure(info: &crate::ArchiveInfo) -> String {
 pub struct FileExtractionTracer {
     file_name: String,
     steps: Vec<(String, Option<String>)>, // (step description, optional details)
-    start_time: std::time::Instant,
+    start_time: Instant,
 }
 
 impl FileExtractionTracer {
@@ -736,7 +737,7 @@ impl FileExtractionTracer {
         Self {
             file_name: file_name.to_string(),
             steps: Vec::new(),
-            start_time: std::time::Instant::now(),
+            start_time: Instant::now(),
         }
     }
 

@@ -714,7 +714,7 @@ impl MutableArchive {
 
     /// Update the (attributes) file with current file information
     fn update_attributes(&mut self) -> Result<()> {
-        use std::time::{SystemTime, UNIX_EPOCH};
+        use web_time::{SystemTime, UNIX_EPOCH};
 
         // Check if (attributes) exists
         if self.archive.find_file("(attributes)")?.is_none() {
