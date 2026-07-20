@@ -45,8 +45,12 @@ jobs:
 
       - name: Install binaryen (wasm-opt)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y binaryen
+          set -euo pipefail
+          version=131
+          tarball="binaryen-version_${version}-x86_64-linux.tar.gz"
+          wget -q "https://github.com/WebAssembly/binaryen/releases/download/version_${version}/${tarball}"
+          tar -xzf "$tarball"
+          sudo cp "binaryen-version_${version}/bin/wasm-opt" /usr/local/bin/
           wasm-opt --version
 
       - name: Build package
