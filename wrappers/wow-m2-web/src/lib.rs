@@ -24,8 +24,15 @@ use wow_m2::animation::{
     AnimationManager, AnimationManagerBuilder, BoneTransformComputer, Mat4, Vec3,
 };
 use wow_m2::skin::SkinFile;
-use wow_m2::{M2Format, M2Model, parse_m2};
+use wow_m2::{parse_m2, M2Format, M2Model};
 use wow_web_common::{set_property, to_js, to_uint8_array};
+
+/// Installs a panic hook so Rust panics print a useful message to the browser
+/// console instead of just `RuntimeError: unreachable`.
+#[wasm_bindgen(start)]
+pub fn start() {
+    console_error_panic_hook::set_once();
+}
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -434,9 +441,13 @@ pub struct M2Renderer {
     indices: Vec<u32>,
     /// One [`BatchInfo`] per drawn batch (parallel to index ranges).
     batches: Vec<BatchInfo>,
-    /// Cached base (bind-pose) positions in GL space.
+    /// Cached base (bind-pose) positions in WoW model space.
+    ///
+    /// Bone pivots and animation tracks are also in WoW space, so CPU
+    /// skinning must happen in this coordinate system. We convert the final
+    /// skinned output to GL space when writing `skinned_positions`.
     base_positions: Vec<[f32; 3]>,
-    /// Cached base normals in GL space.
+    /// Cached base normals in WoW model space.
     base_normals: Vec<[f32; 3]>,
     /// Cached per-vertex bone indices/weights.
     bone_indices: Vec<[u8; 4]>,
@@ -450,6 +461,11 @@ pub struct M2Renderer {
 #[inline]
 fn to_gl(x: f32, y: f32, z: f32) -> [f32; 3] {
     [x, z, -y]
+}
+
+#[inline]
+fn vec3_to_gl(v: Vec3) -> [f32; 3] {
+    to_gl(v.x, v.y, v.z)
 }
 
 #[wasm_bindgen(js_class = M2Renderer)]
@@ -496,16 +512,22 @@ impl M2Renderer {
             BoneTransformComputer::new(&pivots, &parents, &flags)
         };
 
-        // Cache base geometry in GL space plus per-vertex skinning data.
+        // Cache base geometry in WoW space plus per-vertex skinning data.
+        //
+        // Bone pivots and animation tracks are stored in WoW coordinates. If
+        // we convert vertices to GL space before applying the bone matrices,
+        // the animation math mixes coordinate systems and character models
+        // explode. Keep skinning inputs in WoW space and convert only the
+        // final skinned output to GL space.
         let base_positions: Vec<[f32; 3]> = model
             .vertices
             .iter()
-            .map(|v| to_gl(v.position.x, v.position.y, v.position.z))
+            .map(|v| [v.position.x, v.position.y, v.position.z])
             .collect();
         let base_normals: Vec<[f32; 3]> = model
             .vertices
             .iter()
-            .map(|v| to_gl(v.normal.x, v.normal.y, v.normal.z))
+            .map(|v| [v.normal.x, v.normal.y, v.normal.z])
             .collect();
         let bone_indices: Vec<[u8; 4]> = model.vertices.iter().map(|v| v.bone_indices).collect();
         let bone_weights: Vec<[u8; 4]> = model.vertices.iter().map(|v| v.bone_weights).collect();
@@ -651,9 +673,10 @@ impl M2Renderer {
         let mut min = [f32::INFINITY; 3];
         let mut max = [f32::NEG_INFINITY; 3];
         for p in &self.base_positions {
+            let gl_p = to_gl(p[0], p[1], p[2]);
             for i in 0..3 {
-                min[i] = min[i].min(p[i]);
-                max[i] = max[i].max(p[i]);
+                min[i] = min[i].min(gl_p[i]);
+                max[i] = max[i].max(gl_p[i]);
             }
         }
         if !self.base_positions.is_empty() {
@@ -731,12 +754,14 @@ impl M2Renderer {
             let out_p = vi * 3;
 
             if !has_bones {
-                self.skinned_positions[out_p] = pos[0];
-                self.skinned_positions[out_p + 1] = pos[1];
-                self.skinned_positions[out_p + 2] = pos[2];
-                self.skinned_normals[out_p] = nrm[0];
-                self.skinned_normals[out_p + 1] = nrm[1];
-                self.skinned_normals[out_p + 2] = nrm[2];
+                let gl_pos = to_gl(pos[0], pos[1], pos[2]);
+                let gl_nrm = to_gl(nrm[0], nrm[1], nrm[2]);
+                self.skinned_positions[out_p] = gl_pos[0];
+                self.skinned_positions[out_p + 1] = gl_pos[1];
+                self.skinned_positions[out_p + 2] = gl_pos[2];
+                self.skinned_normals[out_p] = gl_nrm[0];
+                self.skinned_normals[out_p + 1] = gl_nrm[1];
+                self.skinned_normals[out_p + 2] = gl_nrm[2];
                 continue;
             }
 
@@ -773,20 +798,21 @@ impl M2Renderer {
                 acc_n = base_nrm;
             }
 
-            self.skinned_positions[out_p] = acc_p.x;
-            self.skinned_positions[out_p + 1] = acc_p.y;
-            self.skinned_positions[out_p + 2] = acc_p.z;
+            let gl_pos = vec3_to_gl(acc_p);
+            self.skinned_positions[out_p] = gl_pos[0];
+            self.skinned_positions[out_p + 1] = gl_pos[1];
+            self.skinned_positions[out_p + 2] = gl_pos[2];
 
             let len = (acc_n.x * acc_n.x + acc_n.y * acc_n.y + acc_n.z * acc_n.z).sqrt();
-            if len > 1e-6 {
-                self.skinned_normals[out_p] = acc_n.x / len;
-                self.skinned_normals[out_p + 1] = acc_n.y / len;
-                self.skinned_normals[out_p + 2] = acc_n.z / len;
+            let final_nrm = if len > 1e-6 {
+                Vec3::new(acc_n.x / len, acc_n.y / len, acc_n.z / len)
             } else {
-                self.skinned_normals[out_p] = base_nrm.x;
-                self.skinned_normals[out_p + 1] = base_nrm.y;
-                self.skinned_normals[out_p + 2] = base_nrm.z;
-            }
+                base_nrm
+            };
+            let gl_nrm = vec3_to_gl(final_nrm);
+            self.skinned_normals[out_p] = gl_nrm[0];
+            self.skinned_normals[out_p + 1] = gl_nrm[1];
+            self.skinned_normals[out_p + 2] = gl_nrm[2];
         }
     }
 }
