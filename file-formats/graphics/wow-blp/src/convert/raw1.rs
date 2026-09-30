@@ -31,9 +31,9 @@ pub fn raw1_to_image(
         for (i, pixel) in res_image.pixels_mut().enumerate() {
             let ci = raw_image.indexed_rgb[i];
             let color = image.cmap[ci as usize];
-            pixel.0[0] = (color & 0xFF) as u8;
-            pixel.0[1] = ((color >> 8) & 0xFF) as u8;
-            pixel.0[2] = ((color >> 16) & 0xFF) as u8;
+            pixel.0[0] = ((color >> 16) & 0xFF) as u8; // R
+            pixel.0[1] = ((color >> 8) & 0xFF) as u8; // G
+            pixel.0[2] = (color & 0xFF) as u8; // B
         }
         Ok(DynamicImage::ImageRgb8(res_image))
     } else if alpha_bits == 1 {
@@ -52,9 +52,9 @@ pub fn raw1_to_image(
         for (i, pixel) in res_image.pixels_mut().enumerate() {
             let ci = raw_image.indexed_rgb[i];
             let color = image.cmap[ci as usize];
-            pixel.0[0] = (color & 0xFF) as u8;
-            pixel.0[1] = ((color >> 8) & 0xFF) as u8;
-            pixel.0[2] = ((color >> 16) & 0xFF) as u8;
+            pixel.0[0] = ((color >> 16) & 0xFF) as u8; // R
+            pixel.0[1] = ((color >> 8) & 0xFF) as u8; // G
+            pixel.0[2] = (color & 0xFF) as u8; // B
             let bit = (raw_image.indexed_alpha[i / 8] >> (i % 8)) & 0x01;
             pixel.0[3] = if bit == 1 { 255 } else { 0 };
         }
@@ -76,9 +76,9 @@ pub fn raw1_to_image(
         for (i, pixel) in res_image.pixels_mut().enumerate() {
             let ci = raw_image.indexed_rgb[i];
             let color = image.cmap[ci as usize];
-            pixel.0[0] = (color & 0xFF) as u8;
-            pixel.0[1] = ((color >> 8) & 0xFF) as u8;
-            pixel.0[2] = ((color >> 16) & 0xFF) as u8;
+            pixel.0[0] = ((color >> 16) & 0xFF) as u8; // R
+            pixel.0[1] = ((color >> 8) & 0xFF) as u8; // G
+            pixel.0[2] = (color & 0xFF) as u8; // B
             let alpha_block = raw_image.indexed_alpha[i / 2];
             let nibble = if i % 2 == 0 {
                 alpha_block & 0x0F
@@ -104,9 +104,9 @@ pub fn raw1_to_image(
         for (i, pixel) in res_image.pixels_mut().enumerate() {
             let ci = raw_image.indexed_rgb[i];
             let color = image.cmap[ci as usize];
-            pixel.0[0] = (color & 0xFF) as u8;
-            pixel.0[1] = ((color >> 8) & 0xFF) as u8;
-            pixel.0[2] = ((color >> 16) & 0xFF) as u8;
+            pixel.0[0] = ((color >> 16) & 0xFF) as u8; // R
+            pixel.0[1] = ((color >> 8) & 0xFF) as u8; // G
+            pixel.0[2] = (color & 0xFF) as u8; // B
             pixel.0[3] = raw_image.indexed_alpha[i];
         }
         Ok(DynamicImage::ImageRgba8(res_image))
@@ -223,5 +223,28 @@ fn index_alpha(image: &RgbaImage, alpha_bits: u32) -> Result<Vec<u8>, Error> {
         Ok(index_alpha_8bit(image))
     } else {
         Err(Error::Raw1InvalidAlphaBits(alpha_bits))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn raw1_palette_is_bgrx() {
+        // Palette entry as read from disk bytes [B=0x33, G=0x22, R=0x11, X=0x00]
+        let mut cmap = vec![0u32; 256];
+        cmap[0] = u32::from_le_bytes([0x33, 0x22, 0x11, 0x00]);
+        let blp = BlpRaw1 {
+            cmap,
+            images: vec![Raw1Image {
+                indexed_rgb: vec![0],
+                indexed_alpha: vec![0xFF],
+            }],
+        };
+        let header = BlpHeader::default(); // 1x1, 8-bit alpha
+
+        let img = raw1_to_image(&header, &blp, 0).unwrap().to_rgba8();
+        assert_eq!(img.get_pixel(0, 0).0, [0x11, 0x22, 0x33, 0xFF]);
     }
 }
